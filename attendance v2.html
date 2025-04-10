@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LHS Online Attendance Website</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <style>
+        /* Custom Styles */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* Light gray background */
+        }
+        /* Define shades of green */
+        .bg-primary-green { background-color: #16a34a; } /* Green 600 */
+        .bg-secondary-green { background-color: #dcfce7; } /* Green 100 */
+        .text-primary-green { color: #15803d; } /* Green 700 */
+        .border-primary-green { border-color: #16a34a; }
+        .hover\:bg-primary-green-dark:hover { background-color: #15803d; } /* Green 700 for hover */
+        .ring-primary-green:focus { ring-color: #16a34a; }
+        .focus\:border-primary-green:focus { border-color: #16a34a; }
+        .focus\:ring-primary-green:focus { --tw-ring-color: #16a34a; }
+
+
+        /* Hide elements */
+        .hidden-section { display: none; }
+
+        /* Style for generated QR code */
+        #qrcode-display img {
+            margin: 1rem auto;
+            display: block;
+            border: 5px solid #16a34a;
+            border-radius: 8px;
+            max-width: 100%; /* Ensure QR code scales down */
+            height: auto;
+        }
+         #qr-reader-results {
+             margin-top: 1rem;
+             padding: 0.5rem;
+             border: 1px solid #ccc;
+             background-color: #f9f9f9;
+             min-height: 40px;
+             word-break: break-all;
+             font-size: 0.875rem; /* Smaller text for results */
+        }
+        /* Table styling & responsiveness */
+        .table-container { overflow-x: auto; /* Allow horizontal scroll on small screens */ }
+        table { width: 100%; border-collapse: collapse; min-width: 600px; /* Prevent excessive squishing */}
+        th, td { border: 1px solid #e5e7eb; padding: 8px 12px; text-align: left; white-space: nowrap; /* Prevent text wrapping */}
+        th { background-color: #dcfce7; color: #15803d; font-weight: 600; }
+        tr:nth-child(even) { background-color: #f9fafb; }
+
+        /* Ensure inputs are responsive */
+        input[type="text"], input[type="email"], input[type="password"], input[type="time"], input[type="date"], input[type="week"], select {
+             width: 100%; /* Make inputs take full width of their container */
+        }
+
+        /* Teacher Tabs Styling */
+        .teacher-tab.active {
+             border-color: #16a34a;
+             color: #15803d;
+        }
+        .teacher-tab:not(.active) {
+             border-color: transparent;
+             color: #6b7280; /* Gray 500 */
+        }
+         .teacher-tab:not(.active):hover {
+             border-color: #d1d5db; /* Gray 300 */
+             color: #374151; /* Gray 700 */
+         }
+
+    </style>
+</head>
+<body class="flex flex-col items-center min-h-screen p-2 sm:p-4">
+
+    <div class="bg-white p-4 sm:p-6 md:p-8 rounded-lg shadow-xl w-full max-w-7xl">
+
+        <div class="text-center mb-6 sm:mb-8 border-b pb-4 border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+             <div class="flex items-center justify-center sm:justify-start">
+                <img src="https://i.ibb.co/v4NRcFJy/Picsart-25-04-11-00-06-05-123.jpg" alt="LHS Logo" border="0" class="h-12 sm:h-16 w-auto mr-3 sm:mr-4 rounded-full">
+                <h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-primary-green whitespace-nowrap">LHS Online Attendance</h1>
+            </div>
+            <button id="logout-button" onclick="logout()" class="hidden-section bg-red-500 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg shadow hover:bg-red-600 transition duration-300 text-xs sm:text-sm whitespace-nowrap">
+                <i class="fas fa-sign-out-alt mr-1"></i> Logout
+            </button>
+        </div>
+
+        <div id="app-content">
+
+            <div id="role-selection-view" class="text-center">
+                <h2 class="text-xl sm:text-2xl font-semibold mb-6 text-gray-700">Choose Your Role</h2>
+                <div class="flex flex-col md:flex-row justify-center gap-4 sm:gap-6">
+                    <button onclick="navigateTo('login', { role: 'student' })" class="bg-primary-green text-white px-6 py-3 sm:px-8 sm:py-4 rounded-lg shadow-md hover:bg-primary-green-dark transition duration-300 text-base sm:text-lg font-medium flex items-center justify-center gap-2">
+                        <i class="fas fa-user-graduate"></i> Student
+                    </button>
+                    <button onclick="navigateTo('login', { role: 'teacher' })" class="bg-primary-green text-white px-6 py-3 sm:px-8 sm:py-4 rounded-lg shadow-md hover:bg-primary-green-dark transition duration-300 text-base sm:text-lg font-medium flex items-center justify-center gap-2">
+                        <i class="fas fa-chalkboard-teacher"></i> Teacher
+                    </button>
+                </div>
+            </div>
+
+            <div id="login-view" class="hidden-section max-w-md mx-auto">
+                 <button onclick="navigateTo('role-selection')" class="mb-4 text-sm text-primary-green hover:underline">&larr; Back to Role Selection</button>
+                 <div class="bg-secondary-green p-6 rounded-lg shadow-inner">
+                    <h2 id="login-title" class="text-xl sm:text-2xl font-semibold mb-4 text-center text-primary-green">Login</h2>
+                    <form id="login-form" onsubmit="handleLogin(event)">
+                        <div id="login-fields" class="space-y-4">
+                            </div>
+                        <button type="submit" class="w-full mt-6 bg-primary-green text-white px-4 py-2 rounded-lg shadow hover:bg-primary-green-dark transition duration-300">Login</button>
+                    </form>
+                    <p class="mt-4 text-center text-sm text-gray-600">
+                        Don't have an account?
+                        <button id="go-to-signup" onclick="" class="font-medium text-primary-green hover:underline">Sign Up</button>
+                    </p>
+                 </div>
+            </div>
+
+            <div id="signup-view" class="hidden-section max-w-md mx-auto">
+                 <button onclick="navigateTo('role-selection')" class="mb-4 text-sm text-primary-green hover:underline">&larr; Back to Role Selection</button>
+                 <div class="bg-secondary-green p-6 rounded-lg shadow-inner">
+                     <h2 id="signup-title" class="text-xl sm:text-2xl font-semibold mb-4 text-center text-primary-green">Create Account</h2>
+                     <form id="signup-form" onsubmit="handleSignup(event)">
+                         <div id="signup-fields" class="space-y-4">
+                             </div>
+                          <button type="submit" class="w-full mt-6 bg-primary-green text-white px-4 py-2 rounded-lg shadow hover:bg-primary-green-dark transition duration-300">Sign Up</button>
+                     </form>
+                     <p class="mt-4 text-center text-sm text-gray-600">
+                         Already have an account?
+                         <button id="go-to-login" onclick="" class="font-medium text-primary-green hover:underline">Login</button>
+                     </p>
+                 </div>
+            </div>
+
+            <div id="student-dashboard-view" class="hidden-section mt-4 sm:mt-8">
+                 <h2 class="text-xl sm:text-2xl font-semibold mb-6 text-primary-green text-center">Student Dashboard</h2>
+                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+                     <div class="bg-white p-4 sm:p-6 rounded-lg shadow order-first md:order-none">
+                         <h3 class="text-lg sm:text-xl font-semibold mb-4 text-gray-700">Scan Session QR Code</h3>
+                         <p class="mb-4 text-xs sm:text-sm text-gray-600">Point your camera at the QR code provided by your teacher to record your attendance.</p>
+                         <div id="qr-reader" class="w-full max-w-xs sm:max-w-sm mx-auto border-2 border-dashed border-primary-green rounded-lg p-1 sm:p-2 bg-gray-50 shadow-inner min-h-[200px] sm:min-h-[250px]"></div>
+                         <div id="qr-reader-results" class="mt-3 sm:mt-4 p-2 border border-gray-300 bg-gray-50 rounded text-gray-700 min-h-[40px]">Scan status will appear here...</div>
+                         <button onclick="startQrScanner()" class="mt-3 w-full bg-blue-500 text-white px-4 py-1.5 rounded-lg shadow hover:bg-blue-600 transition duration-300 text-sm">
+                             <i class="fas fa-camera mr-1"></i> Start/Restart Scanner
+                         </button>
+                     </div>
+                     <div class="bg-white p-4 sm:p-6 rounded-lg shadow">
+                         <h3 class="text-lg sm:text-xl font-semibold mb-4 text-gray-700">My Attendance</h3>
+                         <div class="mt-4 max-h-80 overflow-y-auto table-container">
+                            <table>
+                                <thead>
+                                    <tr><th>Date</th><th>Subject</th><th>Time In</th><th>Status</th></tr>
+                                </thead>
+                                <tbody id="student-attendance-history">
+                                    <tr><td colspan="4" class="text-center text-gray-500 py-4">No attendance records yet.</td></tr>
+                                </tbody>
+                            </table>
+                         </div>
+                     </div>
+                 </div>
+            </div>
+
+            <div id="teacher-dashboard-view" class="hidden-section mt-4 sm:mt-8">
+                 <h2 class="text-xl sm:text-2xl font-semibold mb-6 text-primary-green text-center">Teacher Dashboard</h2>
+                 <div class="mb-6 border-b border-gray-200 overflow-x-auto">
+                     <nav class="-mb-px flex space-x-4 sm:space-x-6" aria-label="Tabs">
+                         <button onclick="showTeacherTab('manage-classes')" class="teacher-tab whitespace-nowrap py-3 px-2 sm:px-3 border-b-2 font-medium text-sm">Manage Classes</button>
+                         <button onclick="showTeacherTab('create-session')" class="teacher-tab whitespace-nowrap py-3 px-2 sm:px-3 border-b-2 font-medium text-sm">Create Session</button>
+                         <button onclick="showTeacherTab('view-attendance')" class="teacher-tab whitespace-nowrap py-3 px-2 sm:px-3 border-b-2 font-medium text-sm">View Attendance</button>
+                         <button onclick="showTeacherTab('weekly-report')" class="teacher-tab whitespace-nowrap py-3 px-2 sm:px-3 border-b-2 font-medium text-sm">Weekly Report</button>
+                     </nav>
+                 </div>
+
+                 <div id="teacher-content">
+                     <div id="manage-classes-pane" class="teacher-pane">
+                         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                             <div class="lg:col-span-1 bg-secondary-green p-4 rounded-lg shadow-inner">
+                                 <h4 id="class-form-title" class="text-lg font-medium mb-3 text-primary-green">Create New Class Section</h4>
+                                 <form id="class-section-form" onsubmit="handleSaveClass(event)">
+                                     <input type="hidden" id="editing-section-original-name"> <div class="mb-3">
+                                         <label for="class-section-name" class="block text-sm font-medium text-gray-700 mb-1">Section Name</label>
+                                         <input type="text" id="class-section-name" required class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-primary-green focus:border-primary-green">
+                                     </div>
+                                     <div class="mb-3">
+                                         <label class="block text-sm font-medium text-gray-700 mb-1">Students</label>
+                                         <div id="student-inputs" class="space-y-2 max-h-60 overflow-y-auto pr-2">
+                                             </div>
+                                         <button type="button" onclick="addStudentInput()" class="mt-2 text-sm text-primary-green hover:underline">+ Add Student</button>
+                                     </div>
+                                     <div class="flex gap-2 mt-4">
+                                        <button type="submit" id="save-class-button" class="flex-1 bg-primary-green text-white px-4 py-2 rounded-lg shadow hover:bg-primary-green-dark transition duration-300 text-sm">Create Section</button>
+                                        <button type="button" id="cancel-edit-button" onclick="resetClassForm()" class="hidden-section flex-1 bg-gray-400 text-white px-4 py-2 rounded-lg shadow hover:bg-gray-500 transition duration-300 text-sm">Cancel Edit</button>
+                                     </div>
+                                 </form>
+                             </div>
+                             <div class="lg:col-span-2 bg-white p-4 rounded-lg shadow">
+                                <h4 class="text-lg font-medium mb-3 text-gray-700">Existing Sections</h4>
+                                <div id="class-sections-list" class="space-y-3 max-h-[30rem] overflow-y-auto">
+                                    <p class="text-gray-500 text-sm">No sections created yet.</p>
+                                    </div>
+                             </div>
+                         </div>
+                     </div>
+
+                     <div id="create-session-pane" class="teacher-pane hidden-section">
+                         <h3 class="text-xl font-semibold mb-4 text-gray-700">Create Attendance Session</h3>
+                         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                             <div class="bg-secondary-green p-4 rounded-lg shadow-inner">
+                                 <form id="create-session-form" onsubmit="handleCreateSession(event)">
+                                     <div class="mb-3">
+                                         <label for="session-subject" class="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+                                         <input type="text" id="session-subject" required class="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-primary-green focus:border-primary-green">
+                                     </div>
+                                     <div class="mb-3">
+                                         <label for="session-class-section" class="block text-sm font-medium text-gray-700 mb-1">Class Section</label>
+                                         <select id="session-class-section" required class="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-primary-green focus:border-primary-green bg-white">
+                                             <option value="">-- Select Section --</option>
+                                         </select>
+                                     </div>
+                                     <div class="grid grid-cols-2 gap-4 mb-3">
+                                         <div>
+                                             <label for="session-start-time" class="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+                                             <input type="time" id="session-start-time" required class="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-primary-green focus:border-primary-green">
+                                         </div>
+                                         <div>
+                                             <label for="session-end-time" class="block text-sm font-medium text-gray-700 mb-1">End Time</label>
+                                             <input type="time" id="session-end-time" required class="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-primary-green focus:border-primary-green">
+                                         </div>
+                                     </div>
+                                     <button type="submit" class="w-full mt-2 bg-primary-green text-white px-4 py-2 rounded-lg shadow hover:bg-primary-green-dark transition duration-300">Create Session & Generate QR</button>
+                                 </form>
+                             </div>
+                             <div class="bg-white p-4 rounded-lg shadow text-center">
+                                 <h4 class="text-lg font-medium mb-3 text-gray-700">Session QR Code</h4>
+                                 <div id="qrcode-display" class="min-h-[150px] sm:min-h-[200px] flex items-center justify-center">
+                                     <p id="qrcode-placeholder" class="text-gray-500 text-sm">QR code will appear here after creating a session.</p>
+                                 </div>
+                                 <p id="qrcode-info" class="text-xs sm:text-sm text-gray-600 mt-2 break-words"></p>
+                             </div>
+                         </div>
+                     </div>
+
+                     <div id="view-attendance-pane" class="teacher-pane hidden-section">
+                         <h3 class="text-xl font-semibold mb-4 text-gray-700">View Attendance Records</h3>
+                          <div class="mb-4 flex flex-col sm:flex-row gap-3 sm:gap-4 items-center">
+                             <select id="view-attendance-section-filter" onchange="renderAttendanceView()" class="w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-primary-green focus:border-primary-green bg-white text-sm">
+                                 <option value="">-- Filter by Section --</option>
+                             </select>
+                             <input type="date" id="view-attendance-date-filter" onchange="renderAttendanceView()" class="w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-primary-green focus:border-primary-green text-sm">
+                             <button onclick="exportAttendance()" class="w-full sm:w-auto bg-blue-500 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-600 transition duration-300 text-sm whitespace-nowrap">
+                                 <i class="fas fa-file-csv mr-1"></i> Export CSV
+                             </button>
+                          </div>
+                         <div id="attendance-record-display" class="bg-white p-4 rounded-lg shadow table-container">
+                             <p class="text-gray-500">Select filters to view attendance records.</p>
+                         </div>
+                     </div>
+
+                     <div id="weekly-report-pane" class="teacher-pane hidden-section">
+                         <h3 class="text-xl font-semibold mb-4 text-gray-700">Weekly Attendance Report</h3>
+                          <div class="mb-4 flex flex-col sm:flex-row gap-3 sm:gap-4 items-center">
+                             <input type="week" id="weekly-report-week-filter" onchange="renderWeeklyReport()" class="w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-primary-green focus:border-primary-green text-sm">
+                             <button onclick="exportWeeklyReport()" class="w-full sm:w-auto bg-blue-500 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-600 transition duration-300 text-sm whitespace-nowrap">
+                                 <i class="fas fa-file-csv mr-1"></i> Export CSV
+                             </button>
+                          </div>
+                         <div id="weekly-report-display" class="bg-white p-4 rounded-lg shadow table-container">
+                              <p class="text-gray-500">Select a week to view the report.</p>
+                         </div>
+                     </div>
+                 </div>
+            </div>
+
+        </div> <div id="message-area" class="mt-6 text-center font-medium text-sm h-5"></div> </div> <script>
+        // --- DOM Elements ---
+        const appContentDiv = document.getElementById('app-content');
+        const messageArea = document.getElementById('message-area');
+        const logoutButton = document.getElementById('logout-button');
+        // Auth View Elements
+        const loginTitle = document.getElementById('login-title');
+        const signupTitle = document.getElementById('signup-title');
+        const loginFieldsDiv = document.getElementById('login-fields');
+        const signupFieldsDiv = document.getElementById('signup-fields');
+        const goToSignupButton = document.getElementById('go-to-signup');
+        const goToLoginButton = document.getElementById('go-to-login');
+        // Student View Elements
+        const qrReaderDiv = document.getElementById('qr-reader');
+        const qrResultDiv = document.getElementById('qr-reader-results');
+        const studentAttendanceHistoryTbody = document.getElementById('student-attendance-history');
+        // Teacher View Elements
+        const classFormTitle = document.getElementById('class-form-title');
+        const classSectionForm = document.getElementById('class-section-form');
+        const editingSectionOriginalNameInput = document.getElementById('editing-section-original-name');
+        const classSectionNameInput = document.getElementById('class-section-name');
+        const studentInputsDiv = document.getElementById('student-inputs');
+        const saveClassButton = document.getElementById('save-class-button');
+        const cancelEditButton = document.getElementById('cancel-edit-button');
+        const classSectionsListDiv = document.getElementById('class-sections-list');
+        const sessionClassSectionSelect = document.getElementById('session-class-section');
+        const qrcodeDisplayDiv = document.getElementById('qrcode-display');
+        const qrcodePlaceholder = document.getElementById('qrcode-placeholder');
+        const qrcodeInfoP = document.getElementById('qrcode-info');
+        const viewAttendanceSectionFilter = document.getElementById('view-attendance-section-filter');
+        const viewAttendanceDateFilter = document.getElementById('view-attendance-date-filter');
+        const attendanceRecordDisplayDiv = document.getElementById('attendance-record-display');
+        const weeklyReportWeekFilter = document.getElementById('weekly-report-week-filter');
+        const weeklyReportDisplayDiv = document.getElementById('weekly-report-display');
+
+
+        // --- State Variables ---
+        let currentView = 'role-selection'; // Tracks the current visible "page"
+        let currentRole = null; // 'student' or 'teacher' (set during auth flow)
+        let loggedInUserId = null; // Store ID of logged-in user
+        let html5QrCode = null; // Scanner instance
+        let qrcodeInstance = null; // Generator instance
+        let editingSectionName = null; // Track which section is being edited
+
+        // --- Mock Data (Simulates Database - Lost on Refresh) ---
+        let users = {
+            "student123": { role: "student", password: "password", name: "Demo Student" },
+            "teacher@example.com": { role: "teacher", password: "password", name: "Demo Teacher" }
+        };
+        let classSections = {};
+        let attendanceRecords = [];
+        let activeSessions = {};
+
+        // --- Utility Functions ---
+        function showElement(element) { if(element) element.style.display = 'block'; }
+        function showFlexElement(element) { if(element) element.style.display = 'flex'; }
+        function hideElement(element) { if(element) element.style.display = 'none'; }
+        function clearChildren(element) { if(element) element.innerHTML = ''; }
+        function displayMessage(msg, isSuccess = false) {
+            messageArea.textContent = msg;
+            messageArea.style.color = isSuccess ? '#16a34a' : '#dc2626'; // Green for success, Red for error
+            // Clear message after a few seconds
+            setTimeout(() => { messageArea.textContent = ''; }, 5000);
+        }
+        function formatTime(timeString) { // HH:MM (24hr) to hh:mm AM/PM
+             if (!timeString) return '';
+             try {
+                 const [hour, minute] = timeString.split(':').map(Number);
+                 const ampm = hour >= 12 ? 'PM' : 'AM';
+                 const formattedHour = hour % 12 || 12;
+                 return `${formattedHour}:${minute.toString().padStart(2, '0')} ${ampm}`;
+             } catch (e) { return timeString; /* Return original if format is wrong */ }
+        }
+        function getCurrentDate() { return new Date().toISOString().split('T')[0]; }
+
+        // --- Navigation ---
+        function navigateTo(viewId, params = {}) {
+            console.log(`Navigating to ${viewId} with params:`, params);
+            currentView = viewId;
+            // Hide all top-level views first
+            const views = appContentDiv.children;
+            for (let view of views) {
+                hideElement(view);
+            }
+
+            // Show the target view
+            const targetView = document.getElementById(`${viewId}-view`);
+            if (targetView) {
+                showElement(targetView);
+            } else {
+                console.error(`View with ID ${viewId}-view not found!`);
+                showElement(document.getElementById('role-selection-view')); // Fallback
+                currentView = 'role-selection';
+            }
+
+            // View-specific setup
+            if (viewId === 'login' || viewId === 'signup') {
+                currentRole = params.role || currentRole; // Keep role if navigating between login/signup
+                if (!currentRole) { // If no role (e.g., direct navigation attempt), go back
+                    navigateTo('role-selection');
+                    return;
+                }
+                setupAuthForms(viewId, currentRole);
+            } else if (viewId === 'student-dashboard') {
+                if (!loggedInUserId) { navigateTo('role-selection'); return; } // Guard route
+                startQrScanner();
+                renderStudentAttendance();
+            } else if (viewId === 'teacher-dashboard') {
+                 if (!loggedInUserId) { navigateTo('role-selection'); return; } // Guard route
+                stopQrScanner();
+                populateSectionDropdowns();
+                renderClassSectionsList();
+                showTeacherTab('manage-classes'); // Default tab
+                resetClassForm(); // Ensure class form is in create mode initially
+            } else if (viewId === 'role-selection') {
+                stopQrScanner();
+                currentRole = null; // Clear role when going back to selection
+            }
+
+            // Show/hide logout button
+            if (['student-dashboard', 'teacher-dashboard'].includes(viewId)) {
+                 showElement(logoutButton);
+            } else {
+                 hideElement(logoutButton);
+            }
+            displayMessage(''); // Clear messages on navigation
+        }
+
+        // --- Authentication Setup ---
+        function setupAuthForms(viewId, role) {
+            const isLogin = viewId === 'login';
+            const formFieldsDiv = isLogin ? loginFieldsDiv : signupFieldsDiv;
+            const titleElement = isLogin ? loginTitle : signupTitle;
+            const switchButton = isLogin ? goToSignupButton : goToLoginButton;
+            const otherViewId = isLogin ? 'signup' : 'login';
+
+            titleElement.textContent = `${isLogin ? 'Login' : 'Create Account'} (${role.charAt(0).toUpperCase() + role.slice(1)})`;
+            clearChildren(formFieldsDiv); // Clear previous fields
+
+            // Define fields based on role
+            let fieldsHtml = '';
+            const passwordField = `
+                <div>
+                    <label for="${viewId}-password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                    <input type="password" id="${viewId}-password" name="${viewId}-password" required class="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-primary-green focus:border-primary-green">
+                </div>`;
+            const nameField = `
+                 <div>
+                    <label for="signup-name" class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                    <input type="text" id="signup-name" name="signup-name" required class="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-primary-green focus:border-primary-green">
+                </div>`;
+
+            if (role === 'student') {
+                const idField = `
+                    <div>
+                        <label for="${viewId}-id" class="block text-sm font-medium text-gray-700 mb-1">ID Number</label>
+                        <input type="text" id="${viewId}-id" name="${viewId}-id" required class="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-primary-green focus:border-primary-green">
+                    </div>`;
+                fieldsHtml = isLogin ? idField + passwordField : nameField + idField + passwordField;
+            } else { // Teacher
+                 const emailField = `
+                    <div>
+                        <label for="${viewId}-email" class="block text-sm font-medium text-gray-700 mb-1">Email / Gmail</label>
+                        <input type="email" id="${viewId}-email" name="${viewId}-email" required class="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-primary-green focus:border-primary-green">
+                    </div>`;
+                 fieldsHtml = isLogin ? emailField + passwordField : nameField + emailField + passwordField;
+            }
+            formFieldsDiv.innerHTML = fieldsHtml;
+
+            // Set up the button to switch between login/signup
+            switchButton.onclick = () => navigateTo(otherViewId, { role: role });
+        }
+
+        // --- Authentication Logic ---
+        function handleLogin(event) {
+            event.preventDefault();
+            const password = document.getElementById('login-password').value;
+            let identifier;
+            if (currentRole === 'student') identifier = document.getElementById('login-id').value;
+            else identifier = document.getElementById('login-email').value;
+
+            if (!identifier || !password) { displayMessage('Please fill in all fields.'); return; }
+
+            const user = users[identifier];
+            if (user && user.role === currentRole && user.password === password) { // SIMULATED check
+                console.log(`${currentRole} Login Success:`, identifier);
+                loggedInUserId = identifier;
+                navigateTo(currentRole === 'student' ? 'student-dashboard' : 'teacher-dashboard');
+            } else {
+                displayMessage('Invalid credentials or role mismatch.');
+            }
+        }
+
+        function handleSignup(event) {
+            event.preventDefault();
+            const name = document.getElementById('signup-name').value;
+            const password = document.getElementById('signup-password').value;
+            let identifier;
+            if (currentRole === 'student') identifier = document.getElementById('signup-id').value;
+            else identifier = document.getElementById('signup-email').value;
+
+            if (!name || !password || !identifier) { displayMessage('Please fill in all fields.'); return; }
+
+            if (users[identifier]) {
+                displayMessage(`${currentRole === 'student' ? 'ID Number' : 'Email'} already exists.`);
+            } else {
+                users[identifier] = { role: currentRole, password: password, name: name }; // SIMULATED save
+                console.log('Signup Success:', identifier, users[identifier]);
+                displayMessage('Account created successfully! Please log in.', true);
+                navigateTo('login', { role: currentRole }); // Navigate to login page after signup
+            }
+        }
+
+        function logout() {
+            console.log('Logging out...');
+            loggedInUserId = null;
+            currentRole = null;
+            stopQrScanner();
+            navigateTo('role-selection');
+        }
+
+        // --- Teacher: Manage Classes ---
+        function createStudentInputDiv(name = '', id = '', isExisting = false) {
+            const div = document.createElement('div');
+            // Added data attribute to mark existing students during edit
+            div.className = 'flex gap-2 items-center student-input-row';
+            div.dataset.existing = isExisting;
+            div.innerHTML = `
+                <input type="text" placeholder="Student Name" value="${name}" class="student-name flex-1 px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-primary-green focus:border-primary-green">
+                <input type="text" placeholder="ID Number" value="${id}" class="student-id flex-1 px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-primary-green focus:border-primary-green">
+                <button type="button" onclick="this.parentElement.remove()" class="text-red-500 hover:text-red-700 text-lg font-bold leading-none px-1" title="Remove Student">&times;</button>
+            `;
+            return div;
+        }
+
+        function addStudentInput() {
+            studentInputsDiv.appendChild(createStudentInputDiv());
+        }
+
+        function resetClassForm() {
+            classFormTitle.textContent = 'Create New Class Section';
+            classSectionForm.reset(); // Clear form fields
+            editingSectionOriginalNameInput.value = ''; // Clear hidden field
+            clearChildren(studentInputsDiv); // Clear student inputs
+            addStudentInput(); // Add one empty student row
+            saveClassButton.textContent = 'Create Section';
+            hideElement(cancelEditButton);
+            editingSectionName = null; // Clear editing state
+        }
+
+        function handleSaveClass(event) {
+            event.preventDefault();
+            const newSectionName = classSectionNameInput.value.trim();
+            const originalSectionName = editingSectionOriginalNameInput.value; // Will be empty if creating new
+            const isEditing = !!originalSectionName;
+
+            if (!newSectionName) { displayMessage("Section Name cannot be empty."); return; }
+
+            // Check if new name conflicts with another existing section (only if renaming)
+            if (isEditing && newSectionName !== originalSectionName && classSections[newSectionName]) {
+                 displayMessage(`Another section named "${newSectionName}" already exists.`); return;
+            }
+             // Check if creating a new section with an existing name
+             if (!isEditing && classSections[newSectionName]) {
+                 displayMessage(`Section "${newSectionName}" already exists.`); return;
+             }
+
+            const students = [];
+            const studentRows = studentInputsDiv.querySelectorAll('.student-input-row');
+            let hasValidStudent = false;
+            studentRows.forEach(row => {
+                const nameInput = row.querySelector('.student-name');
+                const idInput = row.querySelector('.student-id');
+                const name = nameInput.value.trim();
+                const id = idInput.value.trim();
+                if (name && id) {
+                    students.push({ name: name, id: id });
+                    hasValidStudent = true;
+                } else if (name || id) {
+                    // If one field is filled but not the other, consider it incomplete
+                    console.warn("Incomplete student entry skipped:", name, id);
+                }
+            });
+
+            if (!hasValidStudent) { displayMessage("Please add at least one student with both Name and ID."); return; }
+
+            // --- SIMULATED SAVE ---
+            // If editing and the name changed, remove the old entry
+            if (isEditing && newSectionName !== originalSectionName) {
+                delete classSections[originalSectionName];
+            }
+            // Add/update the section
+            classSections[newSectionName] = students;
+
+            console.log(isEditing ? "Updated Class Section:" : "Created Class Section:", newSectionName, classSections[newSectionName]);
+            displayMessage(`Section "${newSectionName}" ${isEditing ? 'updated' : 'created'} successfully.`, true);
+
+            resetClassForm(); // Reset form to 'Create' mode
+            renderClassSectionsList();
+            populateSectionDropdowns();
+        }
+
+        function editSection(sectionName) {
+            const sectionData = classSections[sectionName];
+            if (!sectionData) return;
+
+            editingSectionName = sectionName; // Set editing state
+
+            classFormTitle.textContent = `Edit Section: ${sectionName}`;
+            classSectionNameInput.value = sectionName;
+            editingSectionOriginalNameInput.value = sectionName; // Store original name
+
+            clearChildren(studentInputsDiv); // Clear existing inputs
+            if (sectionData.length > 0) {
+                sectionData.forEach(student => {
+                    studentInputsDiv.appendChild(createStudentInputDiv(student.name, student.id, true));
+                });
+            } else {
+                 addStudentInput(); // Add one empty row if section had no students
+            }
+
+
+            saveClassButton.textContent = 'Update Section';
+            showElement(cancelEditButton); // Show cancel button
+
+             // Scroll form into view if needed on smaller screens
+             classSectionForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+
+        function renderClassSectionsList() {
+            clearChildren(classSectionsListDiv);
+            const sectionNames = Object.keys(classSections);
+
+            if (sectionNames.length === 0) {
+                classSectionsListDiv.innerHTML = '<p class="text-gray-500 text-sm">No sections created yet.</p>';
+                return;
+            }
+
+            sectionNames.sort().forEach(name => {
+                const sectionDiv = document.createElement('div');
+                sectionDiv.className = 'p-3 border rounded-md bg-gray-50 hover:shadow-md transition-shadow duration-200';
+                let studentListHtml = classSections[name].map(s => `<li class="text-xs ml-4">${s.name} (${s.id})</li>`).join('');
+                if (!studentListHtml) studentListHtml = '<li class="text-xs text-gray-400 ml-4">No students added</li>';
+
+                sectionDiv.innerHTML = `
+                    <div class="flex justify-between items-center mb-1 gap-2">
+                        <h5 class="font-medium text-primary-green break-all">${name}</h5>
+                        <div class="flex gap-2 flex-shrink-0">
+                             <button onclick="editSection('${name}')" class="text-blue-500 hover:text-blue-700 text-xs font-semibold" title="Edit Section">EDIT</button>
+                             <button onclick="deleteSection('${name}')" class="text-red-500 hover:text-red-700 text-xs font-semibold" title="Delete Section">DELETE</button>
+                        </div>
+                    </div>
+                    <ul class="list-disc list-inside text-gray-600">${studentListHtml}</ul>
+                `;
+                classSectionsListDiv.appendChild(sectionDiv);
+            });
+        }
+
+         function deleteSection(sectionName) {
+             if (confirm(`Are you sure you want to delete section "${sectionName}"? This cannot be undone.`)) {
+                 // --- SIMULATED DELETE ---
+                 delete classSections[sectionName];
+                 // Also delete related sessions and attendance? Or handle gracefully? For simulation, just delete section.
+                 console.log("Deleted section:", sectionName);
+                 displayMessage(`Section "${sectionName}" deleted.`, true);
+
+                 // If the deleted section was being edited, reset the form
+                 if (editingSectionName === sectionName) {
+                     resetClassForm();
+                 }
+
+                 renderClassSectionsList();
+                 populateSectionDropdowns();
+                 // Potentially clear attendance/report views if they were filtered by this section
+                 renderAttendanceView();
+                 renderWeeklyReport();
+             }
+         }
+
+        function populateSectionDropdowns() {
+            const sectionNames = Object.keys(classSections).sort();
+            const optionsHtml = sectionNames.map(name => `<option value="${name}">${name}</option>`).join('');
+            const placeholder = '<option value="">-- Select Section --</option>';
+            sessionClassSectionSelect.innerHTML = placeholder + optionsHtml;
+            viewAttendanceSectionFilter.innerHTML = placeholder + optionsHtml;
+        }
+
+
+        // --- Teacher: Create Session & QR Code ---
+        function handleCreateSession(event) {
+            event.preventDefault();
+            const subject = document.getElementById('session-subject').value.trim();
+            const section = sessionClassSectionSelect.value;
+            const startTime = document.getElementById('session-start-time').value;
+            const endTime = document.getElementById('session-end-time').value;
+            const date = getCurrentDate();
+
+            if (!subject || !section || !startTime || !endTime) { displayMessage("Please fill all session details."); return; }
+            if (new Date(`${date}T${endTime}`) <= new Date(`${date}T${startTime}`)) { displayMessage("End time must be after start time."); return; }
+
+
+            const sessionId = `${subject.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${section.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${date}`;
+            const qrData = JSON.stringify({ sessionId: sessionId, v: 1 }); // v=version, keep payload small
+
+            activeSessions[sessionId] = { subject, section, startTime, endTime, date, qrData };
+            console.log("Created Session:", sessionId, activeSessions[sessionId]);
+
+            clearChildren(qrcodeDisplayDiv);
+            hideElement(qrcodePlaceholder);
+            try {
+                qrcodeInstance = new QRCode(qrcodeDisplayDiv, {
+                    text: qrData, width: 200, height: 200, colorDark : "#000000", colorLight : "#ffffff", correctLevel : QRCode.CorrectLevel.M // Medium correction
+                });
+                 qrcodeInfoP.textContent = `QR Code for ${subject} - ${section} (${formatTime(startTime)} - ${formatTime(endTime)}) on ${date}`;
+                 displayMessage('Session created and QR code generated.', true);
+            } catch (error) {
+                 console.error("Error generating QR Code:", error);
+                 displayMessage('Error generating QR code.');
+                 showElement(qrcodePlaceholder);
+                 qrcodeInfoP.textContent = '';
+            }
+        }
+
+        // --- Data Fetching & Processing for Views ---
+        function getAttendanceDataForView(sectionFilter, dateFilter) {
+            const data = {
+                records: [],
+                session: null,
+                students: classSections[sectionFilter] || []
+            };
+
+            if (!sectionFilter || !dateFilter || data.students.length === 0) {
+                return data;
+            }
+
+            // Find session for this section/date (simplified: assumes one per day)
+            const sessionKey = Object.keys(activeSessions).find(key =>
+                activeSessions[key].section === sectionFilter && activeSessions[key].date === dateFilter
+            );
+            data.session = sessionKey ? activeSessions[sessionKey] : null;
+
+            if (!data.session) return data; // No session, no attendance to show
+
+            // Filter raw attendance records
+            const relevantRecords = attendanceRecords.filter(rec => rec.sessionId === sessionKey);
+            const attendanceMap = new Map(); // studentId -> record
+
+            relevantRecords.forEach(rec => {
+                attendanceMap.set(rec.studentId, {
+                    ...rec,
+                    timestampDate: new Date(rec.timestamp) // Store as Date object for comparison
+                });
+            });
+
+            // Calculate status for each student in the section
+            const sessionEndDateTime = new Date(`${dateFilter}T${data.session.endTime}`);
+            const lateThresholdMinutes = 15; // As per PDF
+            const lateDateTime = new Date(sessionEndDateTime.getTime() + lateThresholdMinutes * 60000);
+
+            data.students.forEach(student => {
+                const record = attendanceMap.get(student.id);
+                let status = 'ABSENT';
+                let timestampStr = '---';
+
+                if (record) {
+                    timestampStr = formatTime(record.timestamp.split('T')[1].substring(0, 5));
+                    if (record.timestampDate <= sessionEndDateTime) {
+                        status = 'ON TIME';
+                    } else if (record.timestampDate <= lateDateTime) {
+                        status = 'LATE';
+                    } else {
+                         status = 'LATE'; // Or VERY LATE if needed distinction
+                    }
+                }
+                data.records.push({
+                    name: student.name,
+                    id: student.id,
+                    timestamp: timestampStr,
+                    status: status
+                });
+            });
+
+             // Sort records alphabetically by name within status groups
+            data.records.sort((a, b) => {
+                const statusOrder = { 'ON TIME': 1, 'LATE': 2, 'ABSENT': 3 };
+                if (statusOrder[a.status] !== statusOrder[b.status]) {
+                    return statusOrder[a.status] - statusOrder[b.status];
+                }
+                return a.name.localeCompare(b.name);
+            });
+
+
+            return data;
+        }
+
+
+        // --- Teacher: View Attendance Rendering ---
+        function renderAttendanceView() {
+            const selectedSection = viewAttendanceSectionFilter.value;
+            const selectedDate = viewAttendanceDateFilter.value || getCurrentDate(); // Default to today
+
+            if (!selectedSection) {
+                attendanceRecordDisplayDiv.innerHTML = '<p class="text-gray-500 p-4">Please select a section to view attendance.</p>';
+                return;
+            }
+
+            const { records, session, students } = getAttendanceDataForView(selectedSection, selectedDate);
+
+            if (!session) {
+                 attendanceRecordDisplayDiv.innerHTML = `<p class="text-gray-500 p-4">No session found for ${selectedSection} on ${selectedDate}.</p>`;
+                 return;
+            }
+             if (students.length === 0) {
+                 attendanceRecordDisplayDiv.innerHTML = `<p class="text-gray-500 p-4">Section "${selectedSection}" has no students added.</p>`;
+                 return;
+             }
+
+             // Create table header
+            let tableHtml = `
+                <h4 class="text-lg font-medium mb-1 text-primary-green">${session.subject} - ${session.section}</h4>
+                <p class="text-sm mb-3 text-gray-600">${selectedDate} (${formatTime(session.startTime)} - ${formatTime(session.endTime)})</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Status</th>
+                            <th>Name</th>
+                            <th>ID Number</th>
+                            <th>Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+             // Render table rows
+             if (records.length === 0) { // Should not happen if students exist, means all absent
+                 tableHtml += `<tr><td colspan="4" class="text-center text-gray-500 py-3">All students absent or no records found.</td></tr>`;
+             } else {
+                 let currentStatus = '';
+                 records.forEach(rec => {
+                     // Add status header row when status changes
+                     if (rec.status !== currentStatus) {
+                         currentStatus = rec.status;
+                         let statusClass = '';
+                         if (currentStatus === 'ON TIME') statusClass = 'text-green-700 bg-green-100';
+                         else if (currentStatus === 'LATE') statusClass = 'text-orange-700 bg-orange-100';
+                         else statusClass = 'text-red-700 bg-red-100';
+                         tableHtml += `<tr><td colspan="4" class="${statusClass} font-semibold py-1">${currentStatus}</td></tr>`;
+                     }
+                     // Student row
+                     tableHtml += `
+                        <tr>
+                            <td></td> <td>${rec.name}</td>
+                            <td>${rec.id}</td>
+                            <td>${rec.timestamp}</td>
+                        </tr>
+                    `;
+                 });
+             }
+
+            tableHtml += `</tbody></table>`;
+            attendanceRecordDisplayDiv.innerHTML = tableHtml;
+        }
+
+
+        // --- Teacher: Weekly Report Rendering ---
+        function getWeeklyReportData(weekString) { // 2025-W15
+             const reportData = {
+                 lates: [], // { name, section, subject, date, arrival, setTime }
+                 absences: [] // { name, section, subject, date }
+             };
+             if (!weekString) return reportData;
+
+             // --- SIMULATED DATA AGGREGATION ---
+             // In a real app, query records within the week range.
+             // For demo, just use mock data if week matches placeholder.
+             console.log(`Simulating report fetch for week: ${weekString}`);
+             // Add mock data similar to PDF if needed for demo
+             if (weekString === "2025-W15") { // Example placeholder week
+                 reportData.lates.push({ name: "Adam", section: "A", subject: "Math", date: "2025-04-08", arrival: "8:14 AM", setTime: "7:30am-9:00am" });
+                 reportData.lates.push({ name: "Badong", section: "A", subject: "Math", date: "2025-04-09", arrival: "8:14 AM", setTime: "8:00am-10:00am" });
+                 reportData.absences.push({ name: "Era", section: "A", subject: "Math", date: "2025-04-08" });
+                 reportData.absences.push({ name: "Fere", section: "A", subject: "Math", date: "2025-04-10" });
+             }
+
+             // Sort data
+             reportData.lates.sort((a,b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name));
+             reportData.absences.sort((a,b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name));
+
+             return reportData;
+        }
+
+        function renderWeeklyReport() {
+            const selectedWeek = weeklyReportWeekFilter.value;
+            if (!selectedWeek) {
+                weeklyReportDisplayDiv.innerHTML = '<p class="text-gray-500 p-4">Select a week to view the report.</p>';
+                return;
+            }
+
+            const { lates, absences } = getWeeklyReportData(selectedWeek);
+
+            let tableHtml = `
+                <h4 class="text-lg font-medium mb-2 text-primary-green">Weekly Report (${selectedWeek})</h4>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Status</th>
+                            <th>Date</th>
+                            <th>Name</th>
+                            <th>Section</th>
+                            <th>Subject</th>
+                            <th>Set Time</th>
+                            <th>Arrival Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="7" class="text-orange-700 bg-orange-100 font-semibold py-1">LATE</td></tr>
+            `;
+
+            if (lates.length === 0) {
+                 tableHtml += `<tr><td colspan="7" class="text-center text-gray-500 py-2">No late entries for this week.</td></tr>`;
+            } else {
+                lates.forEach(late => {
+                    tableHtml += `
+                        <tr>
+                            <td>LATE</td>
+                            <td>${late.date}</td>
+                            <td>${late.name}</td>
+                            <td>${late.section}</td>
+                            <td>${late.subject}</td>
+                            <td>${late.setTime || 'N/A'}</td>
+                            <td>${late.arrival}</td>
+                        </tr>`;
+                });
+            }
+
+             tableHtml += `<tr><td colspan="7" class="text-red-700 bg-red-100 font-semibold py-1">ABSENT</td></tr>`;
+
+             if (absences.length === 0) {
+                 tableHtml += `<tr><td colspan="7" class="text-center text-gray-500 py-2">No absences for this week.</td></tr>`;
+             } else {
+                absences.forEach(absent => {
+                    tableHtml += `
+                        <tr>
+                            <td>ABSENT</td>
+                            <td>${absent.date}</td>
+                            <td>${absent.name}</td>
+                            <td>${absent.section}</td>
+                            <td>${absent.subject}</td>
+                            <td>---</td>
+                            <td>---</td>
+                        </tr>`;
+                });
+             }
+
+            tableHtml += `</tbody></table>`;
+            weeklyReportDisplayDiv.innerHTML = tableHtml;
+        }
+
+
+        // --- Teacher Tab Navigation ---
+        function showTeacherTab(tabId) {
+            document.querySelectorAll('.teacher-pane').forEach(pane => hideElement(pane));
+            document.querySelectorAll('.teacher-tab').forEach(tab => tab.classList.remove('active')); // Use 'active' class for styling
+
+            showElement(document.getElementById(tabId + '-pane'));
+            const activeTab = document.querySelector(`button[onclick="showTeacherTab('${tabId}')"]`);
+            if(activeTab) activeTab.classList.add('active');
+
+             // Trigger data rendering for relevant tabs if needed
+             if (tabId === 'view-attendance') renderAttendanceView();
+             else if (tabId === 'weekly-report') renderWeeklyReport();
+             else if (tabId === 'manage-classes') renderClassSectionsList(); // Refresh list when tab is clicked
+        }
+
+        // --- Student: QR Code Scanner ---
+        function onScanSuccess(decodedText, decodedResult) {
+            console.log(`QR Scan Success: ${decodedText}`);
+            qrResultDiv.textContent = `Processing scan...`;
+            qrResultDiv.style.color = '#15803d';
+
+            try {
+                const scannedData = JSON.parse(decodedText);
+                if (scannedData && scannedData.sessionId && loggedInUserId) {
+                    const session = activeSessions[scannedData.sessionId];
+                    if (session) {
+                        const existingRecord = attendanceRecords.find(rec => rec.sessionId === scannedData.sessionId && rec.studentId === loggedInUserId);
+                        if (existingRecord) {
+                             qrResultDiv.textContent = `Already recorded for ${session.subject} - ${session.section}.`;
+                             qrResultDiv.style.color = '#ca8a04';
+                        } else {
+                            const timestamp = new Date().toISOString();
+                            attendanceRecords.push({
+                                sessionId: scannedData.sessionId, studentId: loggedInUserId, timestamp: timestamp,
+                                subject: session.subject, section: session.section,
+                                sessionStartTime: session.startTime, sessionEndTime: session.endTime
+                            });
+                            console.log("Attendance Recorded:", attendanceRecords[attendanceRecords.length - 1]);
+                             qrResultDiv.textContent = `Attendance recorded for ${session.subject}!`;
+                             renderStudentAttendance();
+                        }
+                    } else { qrResultDiv.textContent = 'Error: Invalid/expired session QR.'; qrResultDiv.style.color = '#dc2626'; }
+                } else { qrResultDiv.textContent = 'Error: Invalid QR data.'; qrResultDiv.style.color = '#dc2626'; }
+            } catch (error) {
+                console.error("Error processing scanned data:", error);
+                qrResultDiv.textContent = 'Error: Cannot read QR data.'; qrResultDiv.style.color = '#dc2626';
+            }
+            stopQrScanner(); // Stop scanning after processing
+        }
+
+        function onScanFailure(error) { /* Usually ignore */ }
+
+        function startQrScanner() {
+            if (!loggedInUserId || currentRole !== 'student') return;
+            if (html5QrCode && html5QrCode.isScanning) {
+                 console.log("Scanner already running.");
+                 // Optionally stop and restart, or just return
+                 // stopQrScanner().then(startQrScanner); // Example restart
+                 return;
+            }
+
+
+            if (!html5QrCode) {
+                 html5QrCode = new Html5Qrcode("qr-reader", { formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ] });
+            }
+            qrResultDiv.textContent = 'Initializing scanner...';
+            qrResultDiv.style.color = '#6b7280';
+
+             Html5Qrcode.getCameras().then(devices => {
+                if (devices && devices.length) {
+                    const config = { fps: 5, qrbox: { width: 180, height: 180 }, aspectRatio: 1.0 }; // Smaller qrbox
+                    // Prefer back camera
+                     const rearCamera = devices.find(d => d.label.toLowerCase().includes('back'));
+                     const cameraId = rearCamera ? rearCamera.id : devices[0].id;
+
+                    html5QrCode.start( cameraId, config, onScanSuccess, onScanFailure)
+                    .then(() => { qrResultDiv.textContent = 'Scanner ready.'; console.log("QR Scanner Started"); })
+                    .catch(err => { console.error("Scanner Start Error:", err); qrResultDiv.textContent = 'Scanner Error. Check Permissions.'; qrResultDiv.style.color = '#dc2626'; });
+                } else { console.error("No cameras found."); qrResultDiv.textContent = 'No camera found.'; qrResultDiv.style.color = '#dc2626'; }
+            }).catch(err => { console.error("Camera Access Error:", err); qrResultDiv.textContent = 'Camera access error.'; qrResultDiv.style.color = '#dc2626'; });
+        }
+
+         async function stopQrScanner() {
+            if (html5QrCode && html5QrCode.isScanning) {
+                try {
+                    await html5QrCode.stop();
+                    console.log("QR Code scanning stopped.");
+                    // qrResultDiv.textContent = 'Scanner stopped.'; // Keep last message
+                } catch (err) {
+                    console.error("Error stopping QR scanner:", err);
+                     // May fail if camera access is already lost, ignore usually
+                }
+            }
+         }
+
+         // --- Student: View Attendance History ---
+         function renderStudentAttendance() {
+             if (!loggedInUserId || currentRole !== 'student') return;
+             clearChildren(studentAttendanceHistoryTbody);
+             const studentRecords = attendanceRecords
+                 .filter(rec => rec.studentId === loggedInUserId)
+                 .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+            if (studentRecords.length === 0) {
+                 studentAttendanceHistoryTbody.innerHTML = `<tr><td colspan="4" class="text-center text-gray-500 py-4">No attendance records yet.</td></tr>`; return;
+            }
+            studentRecords.forEach(rec => {
+                 const arrivalTime = new Date(rec.timestamp);
+                 const sessionEndDateTime = rec.sessionEndTime ? new Date(`${rec.timestamp.split('T')[0]}T${rec.sessionEndTime}`) : null;
+                 let status = 'UNKNOWN';
+                 if (sessionEndDateTime) {
+                     const lateThresholdMinutes = 15;
+                     const lateDateTime = new Date(sessionEndDateTime.getTime() + lateThresholdMinutes * 60000);
+                     if (arrivalTime <= sessionEndDateTime) status = 'ON TIME';
+                     else if (arrivalTime <= lateDateTime) status = 'LATE';
+                     else status = 'LATE'; // Or VERY LATE
+                 }
+                 const tr = document.createElement('tr');
+                 tr.innerHTML = `
+                     <td>${rec.timestamp.split('T')[0]}</td>
+                     <td>${rec.subject || 'N/A'}</td>
+                     <td>${formatTime(rec.timestamp.split('T')[1].substring(0, 5))}</td>
+                     <td class="${status === 'ON TIME' ? 'text-green-600' : status === 'LATE' ? 'text-orange-600' : 'text-gray-500'} font-medium">${status}</td>
+                 `;
+                 studentAttendanceHistoryTbody.appendChild(tr);
+            });
+         }
+
+        // --- CSV Export ---
+        function escapeCsvCell(cellData) {
+            const stringData = String(cellData === null || cellData === undefined ? '' : cellData);
+            // If the cell contains a comma, double quote, or newline, enclose it in double quotes
+            if (stringData.includes(',') || stringData.includes('"') || stringData.includes('\n')) {
+                // Escape existing double quotes by doubling them
+                const escapedData = stringData.replace(/"/g, '""');
+                return `"${escapedData}"`;
+            }
+            return stringData;
+        }
+
+        function exportToCsv(filename, rows) {
+            if (!rows || rows.length === 0) {
+                displayMessage("No data to export.");
+                return;
+            }
+            // Format rows: Convert array of objects/arrays to array of arrays of strings
+            let csvContent = "";
+             // Assuming the first element of `rows` is the header array or keys of the first object
+             let headers = [];
+             if (Array.isArray(rows[0])) {
+                 headers = rows[0];
+                 rows = rows.slice(1); // Data rows start from index 1
+             } else if (typeof rows[0] === 'object' && rows[0] !== null) {
+                 headers = Object.keys(rows[0]);
+                 rows = rows.map(obj => headers.map(header => obj[header])); // Convert objects to arrays based on header order
+             } else {
+                  displayMessage("Invalid data format for CSV export.");
+                  return;
+             }
+
+
+            // Add header row
+            csvContent += headers.map(escapeCsvCell).join(',') + '\r\n';
+
+            // Add data rows
+            rows.forEach(rowArray => {
+                 csvContent += rowArray.map(escapeCsvCell).join(',') + '\r\n';
+            });
+
+
+            // Create download link
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            if (link.download !== undefined) { // Feature detection
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", filename);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+                 displayMessage("Export started...", true);
+            } else {
+                 displayMessage("CSV export not supported by your browser.");
+            }
+        }
+
+        function exportAttendance() {
+            const selectedSection = viewAttendanceSectionFilter.value;
+            const selectedDate = viewAttendanceDateFilter.value || getCurrentDate();
+            if (!selectedSection) { displayMessage("Please select a section to export."); return; }
+
+            const { records, session } = getAttendanceDataForView(selectedSection, selectedDate);
+
+            if (!session || records.length === 0) { displayMessage("No attendance data found for export."); return; }
+
+            const filename = `attendance_${selectedSection}_${selectedDate}.csv`;
+            // Prepare rows for CSV export
+            const headers = ["Status", "Name", "ID Number", "Timestamp"];
+            const dataRows = records.map(rec => [rec.status, rec.name, rec.id, rec.timestamp]);
+
+            exportToCsv(filename, [headers, ...dataRows]);
+        }
+
+        function exportWeeklyReport() {
+            const selectedWeek = weeklyReportWeekFilter.value;
+            if (!selectedWeek) { displayMessage("Please select a week to export."); return; }
+
+            const { lates, absences } = getWeeklyReportData(selectedWeek);
+
+            if (lates.length === 0 && absences.length === 0) { displayMessage("No report data found for export."); return; }
+
+            const filename = `weekly_report_${selectedWeek}.csv`;
+            const headers = ["Status", "Date", "Name", "Section", "Subject", "Set Time", "Arrival Time"];
+            const dataRows = [];
+
+            lates.forEach(late => dataRows.push(["LATE", late.date, late.name, late.section, late.subject, late.setTime || 'N/A', late.arrival]));
+            absences.forEach(absent => dataRows.push(["ABSENT", absent.date, absent.name, absent.section, absent.subject, '---', '---']));
+
+            // Sort combined data if needed, e.g., by date then status then name
+            dataRows.sort((a, b) => {
+                 if (a[1] !== b[1]) return a[1].localeCompare(b[1]); // Date
+                 const statusOrder = { "LATE": 1, "ABSENT": 2 };
+                 if (statusOrder[a[0]] !== statusOrder[b[0]]) return statusOrder[a[0]] - statusOrder[b[0]]; // Status
+                 return a[2].localeCompare(b[2]); // Name
+            });
+
+
+            exportToCsv(filename, [headers, ...dataRows]);
+        }
+
+
+        // --- Initial Setup ---
+        window.onload = () => {
+            navigateTo('role-selection'); // Start with role selection
+            viewAttendanceDateFilter.value = getCurrentDate(); // Set default date
+            // Add initial student row to class form
+            addStudentInput();
+        };
+
+    </script>
+
+</body>
+</html>
