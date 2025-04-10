@@ -1,0 +1,1409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Online Attendance System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <style>
+        /* Custom Styles */
+        body {
+            font-family: 'Inter', sans-serif; /* Using Inter font as preferred */
+        }
+        /* Simple transition for view switching */
+        .view {
+            display: none; /* Hide all views by default */
+            transition: opacity 0.5s ease-in-out;
+        }
+        .view.active {
+            display: block; /* Show active view */
+            opacity: 1;
+        }
+        /* Style for QR Code container */
+        #qrcode {
+            width: 200px;
+            height: 200px;
+            margin: 20px auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #qrcode img {
+             max-width: 100%;
+             max-height: 100%;
+        }
+        /* Style for modal */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 100; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto; /* 15% from the top and centered */
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%; /* Could be more or less, depending on screen size */
+            max-width: 500px;
+            border-radius: 8px;
+        }
+        .close-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close-button:hover,
+        .close-button:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <div id="app" class="container mx-auto p-4 max-w-4xl">
+
+        <div id="notification" class="hidden p-4 mb-4 text-sm text-blue-700 bg-blue-100 rounded-lg" role="alert">
+            <span class="font-medium">Info:</span> <span id="notification-message"></span>
+        </div>
+
+        <div id="login-view" class="view active bg-white p-8 rounded-lg shadow-md">
+            <h1 class="text-2xl font-bold mb-6 text-center text-gray-700">Teacher Login</h1>
+            <form id="login-form">
+                <div class="mb-4">
+                    <label for="login-email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input type="email" id="login-email" name="email" required class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                <div class="mb-6">
+                    <label for="login-password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                    <input type="password" id="login-password" name="password" required class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Log In</button>
+            </form>
+            <p class="mt-4 text-center text-sm text-gray-600">
+                Don't have an account? <a href="#" id="show-signup" class="font-medium text-indigo-600 hover:text-indigo-500">Sign up</a>
+            </p>
+        </div>
+
+        <div id="signup-view" class="view bg-white p-8 rounded-lg shadow-md">
+            <h1 class="text-2xl font-bold mb-6 text-center text-gray-700">Create Teacher Account</h1>
+            <form id="signup-form">
+                <div class="mb-4">
+                    <label for="signup-name" class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                    <input type="text" id="signup-name" name="name" required class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                <div class="mb-4">
+                    <label for="signup-email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input type="email" id="signup-email" name="email" required class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                <div class="mb-6">
+                    <label for="signup-password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                    <input type="password" id="signup-password" name="password" required class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                <button type="submit" class="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">Sign Up</button>
+            </form>
+            <p class="mt-4 text-center text-sm text-gray-600">
+                Already have an account? <a href="#" id="show-login" class="font-medium text-indigo-600 hover:text-indigo-500">Log in</a>
+            </p>
+        </div>
+
+        <div id="dashboard-view" class="view bg-white p-8 rounded-lg shadow-md">
+            <div class="flex justify-between items-center mb-6">
+                <h1 class="text-2xl font-bold text-gray-700">Teacher Dashboard</h1>
+                <button id="logout-button" class="bg-red-500 text-white py-1 px-3 rounded-md hover:bg-red-600 text-sm">Logout</button>
+            </div>
+            <p class="mb-6 text-gray-600">Welcome, <span id="teacher-name" class="font-semibold">Teacher</span>!</p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-gray-50 p-6 rounded-lg border border-gray-200">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-700">Class Sections</h2>
+                    <button id="show-sections-button" class="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 mb-2">Manage Sections</button>
+                    <div id="sections-list-summary" class="text-sm text-gray-500 mt-2">
+                        Loading sections...
+                    </div>
+                </div>
+
+                <div class="bg-gray-50 p-6 rounded-lg border border-gray-200">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-700">Attendance Sessions</h2>
+                    <button id="show-create-session-button" class="w-full bg-purple-500 text-white py-2 px-4 rounded-md hover:bg-purple-600 mb-2">Create New Session</button>
+                     <button id="show-view-attendance-button" class="w-full bg-teal-500 text-white py-2 px-4 rounded-md hover:bg-teal-600 mb-2">View Attendance Records</button>
+                     <button id="show-weekly-report-button" class="w-full bg-orange-500 text-white py-2 px-4 rounded-md hover:bg-orange-600">View Weekly Report</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="sections-view" class="view bg-white p-8 rounded-lg shadow-md">
+            <button class="back-to-dashboard mb-4 text-indigo-600 hover:text-indigo-800">&larr; Back to Dashboard</button>
+            <h2 class="text-xl font-bold mb-4 text-gray-700">Manage Class Sections</h2>
+
+            <form id="create-section-form" class="mb-6 p-4 border rounded-md bg-gray-50">
+                <h3 class="text-lg font-semibold mb-2 text-gray-600">Create New Section</h3>
+                <div class="mb-3">
+                    <label for="section-name" class="block text-sm font-medium text-gray-700 mb-1">Section Name</label>
+                    <input type="text" id="section-name" required class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                 <button type="submit" class="bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600">Create Section</button>
+            </form>
+
+            <h3 class="text-lg font-semibold mb-2 text-gray-600">Existing Sections</h3>
+            <div id="sections-list" class="space-y-4">
+                <p class="text-gray-500">No sections created yet.</p>
+            </div>
+
+             <div id="add-student-modal" class="modal">
+                <div class="modal-content">
+                    <span class="close-button" onclick="closeModal('add-student-modal')">&times;</span>
+                    <h3 class="text-lg font-semibold mb-4">Add Student to <span id="modal-section-name" class="font-bold"></span></h3>
+                    <form id="add-student-form">
+                        <input type="hidden" id="modal-section-id">
+                        <div class="mb-3">
+                            <label for="student-name" class="block text-sm font-medium text-gray-700 mb-1">Student Name</label>
+                            <input type="text" id="student-name" required class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                        </div>
+                        <div class="mb-3">
+                            <label for="student-id" class="block text-sm font-medium text-gray-700 mb-1">Student ID Number</label>
+                            <input type="text" id="student-id" required class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                        </div>
+                        <button type="submit" class="bg-green-500 text-white py-2 px-4 rounded-md hover:bg-green-600">Add Student</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+
+        <div id="create-session-view" class="view bg-white p-8 rounded-lg shadow-md">
+             <button class="back-to-dashboard mb-4 text-indigo-600 hover:text-indigo-800">&larr; Back to Dashboard</button>
+            <h2 class="text-xl font-bold mb-4 text-gray-700">Create Attendance Session</h2>
+            <form id="create-session-form" class="space-y-4">
+                <div>
+                    <label for="session-subject" class="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+                    <input type="text" id="session-subject" required class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                <div>
+                    <label for="session-section" class="block text-sm font-medium text-gray-700 mb-1">Class Section</label>
+                    <select id="session-section" required class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        <option value="">Select a Section</option>
+                        </select>
+                </div>
+                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                     <div>
+                         <label for="session-start-time" class="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+                         <input type="datetime-local" id="session-start-time" required class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <div>
+                         <label for="session-end-time" class="block text-sm font-medium text-gray-700 mb-1">End Time</label>
+                         <input type="datetime-local" id="session-end-time" required class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                </div>
+                <button type="submit" class="w-full bg-purple-500 text-white py-2 px-4 rounded-md hover:bg-purple-600">Create Session & Generate QR</button>
+            </form>
+
+            <div id="qr-code-area" class="mt-6 hidden text-center">
+                <h3 class="text-lg font-semibold mb-2 text-gray-600">Scan QR Code for Attendance</h3>
+                 <p class="text-sm text-gray-500 mb-4">Session ID: <span id="session-id-display"></span></p>
+                <div id="qrcode"></div>
+                 <button id="simulate-scan-button" class="mt-4 bg-yellow-500 text-white py-2 px-4 rounded-md hover:bg-yellow-600">Simulate Student Scan (Demo)</button>
+                 <div id="scan-simulation-area" class="mt-4 hidden">
+                     <label for="simulated-student-id" class="block text-sm font-medium text-gray-700 mb-1">Enter Student ID to Simulate Scan:</label>
+                     <input type="text" id="simulated-student-id" class="px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                     <button id="submit-simulated-scan" class="ml-2 bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600">Record Attendance</button>
+                 </div>
+            </div>
+        </div>
+
+        <div id="view-attendance-view" class="view bg-white p-8 rounded-lg shadow-md">
+             <button class="back-to-dashboard mb-4 text-indigo-600 hover:text-indigo-800">&larr; Back to Dashboard</button>
+            <h2 class="text-xl font-bold mb-4 text-gray-700">View Attendance Records</h2>
+
+            <div class="mb-4">
+                 <label for="view-session-selector" class="block text-sm font-medium text-gray-700 mb-1">Select Session to View:</label>
+                 <select id="view-session-selector" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                     <option value="">-- Select Session --</option>
+                     </select>
+            </div>
+
+            <div id="attendance-record-display" class="mt-6 hidden">
+                 <h3 id="attendance-header" class="text-lg font-semibold mb-2 text-gray-600">Attendance for: Subject, Section</h3>
+                 <p id="attendance-time" class="text-sm text-gray-500 mb-4">Date, Start Time - End Time</p>
+                 <button id="export-attendance-csv" class="mb-4 bg-green-500 text-white py-1 px-3 rounded-md hover:bg-green-600 text-sm">Export as CSV</button>
+
+                 <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID Number</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="attendance-table-body" class="bg-white divide-y divide-gray-200">
+                            <tr><td colspan="6" class="text-center py-4 text-gray-500">Select a session to view attendance.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+             <div id="edit-attendance-modal" class="modal">
+                <div class="modal-content">
+                    <span class="close-button" onclick="closeModal('edit-attendance-modal')">&times;</span>
+                    <h3 class="text-lg font-semibold mb-4">Edit Attendance Record</h3>
+                    <form id="edit-attendance-form">
+                        <input type="hidden" id="edit-session-id">
+                        <input type="hidden" id="edit-student-identifier"> <div class="mb-3">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Student Name</label>
+                            <p id="edit-student-name" class="px-3 py-2 bg-gray-100 rounded-md"></p>
+                        </div>
+                        <div class="mb-3">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Student ID</label>
+                            <p id="edit-student-id" class="px-3 py-2 bg-gray-100 rounded-md"></p>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit-timestamp" class="block text-sm font-medium text-gray-700 mb-1">Timestamp (leave blank if Absent)</label>
+                            <input type="datetime-local" id="edit-timestamp" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                        </div>
+                         <div class="mb-3">
+                            <label for="edit-notes" class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                            <textarea id="edit-notes" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"></textarea>
+                        </div>
+                        <button type="submit" class="bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600">Save Changes</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div id="weekly-report-view" class="view bg-white p-8 rounded-lg shadow-md">
+             <button class="back-to-dashboard mb-4 text-indigo-600 hover:text-indigo-800">&larr; Back to Dashboard</button>
+            <h2 class="text-xl font-bold mb-4 text-gray-700">Weekly Attendance Report</h2>
+             <button id="export-report-csv" class="mb-4 bg-green-500 text-white py-1 px-3 rounded-md hover:bg-green-600 text-sm">Export Report as CSV</button>
+
+            <div id="weekly-report-content" class="space-y-6">
+                 <p class="text-gray-500">Generating report...</p>
+            </div>
+        </div>
+
+    </div> <script>
+        // --- Application State & Data Management (using localStorage) ---
+        let state = {
+            currentUser: null, // { name, email }
+            users: JSON.parse(localStorage.getItem('attendance_users')) || [],
+            sections: JSON.parse(localStorage.getItem('attendance_sections')) || [], // [{ id, name, students: [{ id, name, studentId }] }]
+            sessions: JSON.parse(localStorage.getItem('attendance_sessions')) || [], // [{ id, subject, sectionId, startTime, endTime, qrCodeData, attendance: [{ studentId, name, timestamp, status, notes }] }]
+            currentView: 'login-view',
+            activeSessionIdForQR: null, // Track which session's QR is displayed
+            activeSessionIdForView: null, // Track which session is being viewed
+        };
+
+        // --- Utility Functions ---
+        function saveData() {
+            localStorage.setItem('attendance_users', JSON.stringify(state.users));
+            localStorage.setItem('attendance_sections', JSON.stringify(state.sections));
+            localStorage.setItem('attendance_sessions', JSON.stringify(state.sessions));
+        }
+
+        function showView(viewId) {
+            document.querySelectorAll('.view').forEach(view => {
+                view.classList.remove('active');
+            });
+            const targetView = document.getElementById(viewId);
+            if (targetView) {
+                targetView.classList.add('active');
+                state.currentView = viewId;
+                // Scroll to top when changing views
+                window.scrollTo(0, 0);
+            } else {
+                console.error("View not found:", viewId);
+            }
+        }
+
+        function showNotification(message, type = 'info') {
+            const notificationArea = document.getElementById('notification');
+            const messageSpan = document.getElementById('notification-message');
+            messageSpan.textContent = message;
+
+            // Reset classes
+            notificationArea.className = 'p-4 mb-4 text-sm rounded-lg'; // Base classes
+
+            if (type === 'success') {
+                notificationArea.classList.add('text-green-700', 'bg-green-100');
+            } else if (type === 'error') {
+                notificationArea.classList.add('text-red-700', 'bg-red-100');
+            } else { // Default to info
+                notificationArea.classList.add('text-blue-700', 'bg-blue-100');
+            }
+
+            notificationArea.classList.remove('hidden');
+
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                notificationArea.classList.add('hidden');
+            }, 5000);
+        }
+
+        function generateId() {
+            return Date.now().toString(36) + Math.random().toString(36).substring(2);
+        }
+
+        function formatDateTime(isoString) {
+            if (!isoString) return '';
+            try {
+                const date = new Date(isoString);
+                 if (isNaN(date.getTime())) return 'Invalid Date'; // Check if date is valid
+                // Format: Apr 8, 2025, 7:00 AM
+                return date.toLocaleString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true
+                 });
+            } catch (e) {
+                console.error("Error formatting date:", isoString, e);
+                return 'Invalid Date';
+            }
+        }
+
+         function formatTime(isoString) {
+             if (!isoString) return '';
+             try {
+                 const date = new Date(isoString);
+                 if (isNaN(date.getTime())) return 'Invalid Date';
+                 // Format: 7:00 AM
+                 return date.toLocaleString('en-US', {
+                     hour: 'numeric',
+                     minute: '2-digit',
+                     hour12: true
+                 });
+             } catch (e) {
+                 console.error("Error formatting time:", isoString, e);
+                 return 'Invalid Date';
+             }
+         }
+
+        function formatDate(isoString) {
+             if (!isoString) return '';
+             try {
+                 const date = new Date(isoString);
+                 if (isNaN(date.getTime())) return 'Invalid Date';
+                 // Format: "April 1, 2025"
+                 return date.toLocaleString('en-US', {
+                     month: 'long',
+                     day: 'numeric',
+                     year: 'numeric'
+                 });
+             } catch (e) {
+                 console.error("Error formatting date:", isoString, e);
+                 return 'Invalid Date';
+             }
+         }
+
+        function openModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.style.display = "block";
+            }
+        }
+
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.style.display = "none";
+            }
+        }
+
+        // --- Authentication Logic ---
+        document.getElementById('signup-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = e.target.name.value;
+            const email = e.target.email.value;
+            const password = e.target.password.value; // In real app, hash password
+
+            if (state.users.some(user => user.email === email)) {
+                showNotification('Email already exists.', 'error');
+                return;
+            }
+
+            state.users.push({ name, email, password });
+            saveData();
+            showNotification('Account created successfully! Please log in.', 'success');
+            e.target.reset();
+            showView('login-view');
+        });
+
+        document.getElementById('login-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = e.target.email.value;
+            const password = e.target.password.value;
+
+            const user = state.users.find(u => u.email === email && u.password === password); // Plain text check (unsafe)
+
+            if (user) {
+                state.currentUser = { name: user.name, email: user.email };
+                document.getElementById('teacher-name').textContent = user.name;
+                showNotification(`Welcome back, ${user.name}!`, 'success');
+                loadDashboardData();
+                showView('dashboard-view');
+            } else {
+                showNotification('Invalid email or password.', 'error');
+            }
+             e.target.reset();
+        });
+
+        document.getElementById('logout-button').addEventListener('click', () => {
+            state.currentUser = null;
+            state.activeSessionIdForQR = null;
+            state.activeSessionIdForView = null;
+            // Clear sensitive areas potentially?
+            document.getElementById('qr-code-area').classList.add('hidden');
+            document.getElementById('attendance-record-display').classList.add('hidden');
+            showNotification('Logged out successfully.');
+            showView('login-view');
+        });
+
+        document.getElementById('show-signup').addEventListener('click', (e) => {
+            e.preventDefault();
+            showView('signup-view');
+        });
+        document.getElementById('show-login').addEventListener('click', (e) => {
+            e.preventDefault();
+            showView('login-view');
+        });
+
+        // --- Navigation ---
+        document.querySelectorAll('.back-to-dashboard').forEach(button => {
+            button.addEventListener('click', () => showView('dashboard-view'));
+        });
+        document.getElementById('show-sections-button').addEventListener('click', () => {
+            renderSectionsView();
+            showView('sections-view');
+        });
+        document.getElementById('show-create-session-button').addEventListener('click', () => {
+            renderCreateSessionView();
+            showView('create-session-view');
+        });
+         document.getElementById('show-view-attendance-button').addEventListener('click', () => {
+             renderViewAttendanceView();
+             showView('view-attendance-view');
+         });
+         document.getElementById('show-weekly-report-button').addEventListener('click', () => {
+             renderWeeklyReportView();
+             showView('weekly-report-view');
+         });
+
+        // --- Dashboard ---
+        function loadDashboardData() {
+            // Update section summary
+            const sectionsSummary = document.getElementById('sections-list-summary');
+            if (state.sections.length > 0) {
+                 sectionsSummary.textContent = `You have ${state.sections.length} section(s).`;
+            } else {
+                 sectionsSummary.textContent = 'No sections created yet.';
+            }
+            // Potentially load other dashboard summaries here
+        }
+
+
+        // --- Section Management ---
+        function renderSectionsView() {
+            const sectionsListDiv = document.getElementById('sections-list');
+            sectionsListDiv.innerHTML = ''; // Clear previous list
+
+            if (state.sections.length === 0) {
+                sectionsListDiv.innerHTML = '<p class="text-gray-500">No sections created yet.</p>';
+                return;
+            }
+
+            state.sections.forEach(section => {
+                const sectionDiv = document.createElement('div');
+                sectionDiv.className = 'p-4 border rounded-md bg-white shadow-sm';
+                sectionDiv.innerHTML = `
+                    <div class="flex justify-between items-center mb-2">
+                        <h4 class="text-lg font-semibold text-gray-800">${section.name}</h4>
+                        <div>
+                            <button class="add-student-button text-sm bg-green-500 text-white py-1 px-2 rounded hover:bg-green-600 mr-2" data-section-id="${section.id}" data-section-name="${section.name}">Add Student</button>
+                            <button class="delete-section-button text-sm bg-red-500 text-white py-1 px-2 rounded hover:bg-red-600" data-section-id="${section.id}">&times; Delete Section</button>
+                        </div>
+                    </div>
+                    <ul class="list-disc list-inside pl-4 text-sm text-gray-600 space-y-1 student-list">
+                        ${section.students.length > 0 ? section.students.map(student => `<li>${student.name} (${student.studentId}) <button class="delete-student-button text-red-500 hover:text-red-700 text-xs ml-2" data-section-id="${section.id}" data-student-id="${student.id}">(Remove)</button></li>`).join('') : '<li>No students added yet.</li>'}
+                    </ul>
+                `;
+                sectionsListDiv.appendChild(sectionDiv);
+            });
+
+            // Add event listeners for new buttons
+            document.querySelectorAll('.add-student-button').forEach(button => {
+                button.addEventListener('click', handleAddStudentClick);
+            });
+             document.querySelectorAll('.delete-section-button').forEach(button => {
+                 button.addEventListener('click', handleDeleteSectionClick);
+             });
+             document.querySelectorAll('.delete-student-button').forEach(button => {
+                 button.addEventListener('click', handleDeleteStudentClick);
+             });
+        }
+
+        document.getElementById('create-section-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const sectionNameInput = document.getElementById('section-name');
+            const sectionName = sectionNameInput.value.trim();
+
+            if (sectionName) {
+                const newSection = {
+                    id: generateId(),
+                    name: sectionName,
+                    students: [] // Initialize with empty student list
+                };
+                state.sections.push(newSection);
+                saveData();
+                renderSectionsView(); // Re-render the list
+                loadDashboardData(); // Update dashboard summary
+                sectionNameInput.value = ''; // Clear input
+                showNotification(`Section "${sectionName}" created.`, 'success');
+            }
+        });
+
+        function handleAddStudentClick(event) {
+            const sectionId = event.target.dataset.sectionId;
+            const sectionName = event.target.dataset.sectionName;
+            document.getElementById('modal-section-id').value = sectionId;
+            document.getElementById('modal-section-name').textContent = sectionName;
+            document.getElementById('add-student-form').reset(); // Clear form
+            openModal('add-student-modal');
+        }
+
+        document.getElementById('add-student-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const sectionId = document.getElementById('modal-section-id').value;
+            const studentName = document.getElementById('student-name').value.trim();
+            const studentIdNum = document.getElementById('student-id').value.trim();
+
+            const section = state.sections.find(s => s.id === sectionId);
+            if (section && studentName && studentIdNum) {
+                // Check if student ID already exists in this section
+                if (section.students.some(s => s.studentId === studentIdNum)) {
+                     showNotification(`Student ID "${studentIdNum}" already exists in this section.`, 'error');
+                     return;
+                }
+
+                const newStudent = {
+                    id: generateId(), // Unique ID for the student entry within the section
+                    name: studentName,
+                    studentId: studentIdNum
+                };
+                section.students.push(newStudent);
+                saveData();
+                renderSectionsView(); // Update the view
+                closeModal('add-student-modal');
+                showNotification(`Student "${studentName}" added to section "${section.name}".`, 'success');
+            } else {
+                showNotification('Please fill in all student details.', 'error');
+            }
+        });
+
+         function handleDeleteSectionClick(event) {
+             const sectionId = event.target.dataset.sectionId;
+             if (confirm('Are you sure you want to delete this section and all its students? This action cannot be undone.')) {
+                 state.sections = state.sections.filter(s => s.id !== sectionId);
+                 // Also consider deleting related sessions or attendance? For simplicity, we won't cascade delete sessions here.
+                 saveData();
+                 renderSectionsView();
+                 loadDashboardData();
+                 showNotification('Section deleted.', 'success');
+             }
+         }
+
+         function handleDeleteStudentClick(event) {
+             const sectionId = event.target.dataset.sectionId;
+             const studentId = event.target.dataset.studentId; // This is the unique student *entry* ID
+             const section = state.sections.find(s => s.id === sectionId);
+
+             if (section && confirm('Are you sure you want to remove this student from the section?')) {
+                 section.students = section.students.filter(s => s.id !== studentId);
+                 saveData();
+                 renderSectionsView();
+                 showNotification('Student removed from section.', 'success');
+             }
+         }
+
+
+        // --- Session Management & QR Code ---
+        function renderCreateSessionView() {
+            const sectionSelect = document.getElementById('session-section');
+            sectionSelect.innerHTML = '<option value="">Select a Section</option>'; // Clear and add default
+
+            if (state.sections.length === 0) {
+                 sectionSelect.disabled = true;
+                 sectionSelect.innerHTML = '<option value="">Create a section first</option>';
+            } else {
+                 sectionSelect.disabled = false;
+                 state.sections.forEach(section => {
+                     const option = document.createElement('option');
+                     option.value = section.id;
+                     option.textContent = section.name;
+                     sectionSelect.appendChild(option);
+                 });
+            }
+             // Reset form and hide QR code area
+             document.getElementById('create-session-form').reset();
+             document.getElementById('qr-code-area').classList.add('hidden');
+             document.getElementById('qrcode').innerHTML = ''; // Clear previous QR code
+             state.activeSessionIdForQR = null;
+        }
+
+        document.getElementById('create-session-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const subject = document.getElementById('session-subject').value.trim();
+            const sectionId = document.getElementById('session-section').value;
+            const startTime = document.getElementById('session-start-time').value;
+            const endTime = document.getElementById('session-end-time').value;
+
+            if (!subject || !sectionId || !startTime || !endTime) {
+                showNotification('Please fill in all session details.', 'error');
+                return;
+            }
+
+            const section = state.sections.find(s => s.id === sectionId);
+            if (!section) {
+                 showNotification('Selected section not found.', 'error');
+                 return;
+            }
+
+            // Validate times
+            const start = new Date(startTime);
+            const end = new Date(endTime);
+            if (isNaN(start.getTime()) || isNaN(end.getTime()) || start >= end) {
+                 showNotification('Invalid start or end time. End time must be after start time.', 'error');
+                 return;
+            }
+
+
+            const newSession = {
+                id: generateId(),
+                subject: subject,
+                sectionId: sectionId,
+                sectionName: section.name, // Store name for easier display
+                startTime: start.toISOString(),
+                endTime: end.toISOString(),
+                qrCodeData: null, // Will be generated below
+                attendance: [] // Initialize empty attendance list
+            };
+
+             // Generate QR Code Data (e.g., session ID)
+            newSession.qrCodeData = newSession.id; // Simple session ID for QR
+
+            state.sessions.push(newSession);
+            saveData();
+
+            // Display QR Code
+            generateQRCode(newSession.qrCodeData);
+            document.getElementById('session-id-display').textContent = newSession.id;
+            document.getElementById('qr-code-area').classList.remove('hidden');
+            state.activeSessionIdForQR = newSession.id; // Track the active session for QR
+
+            showNotification(`Session "${subject}" for "${section.name}" created. QR code generated.`, 'success');
+            // Don't reset the form immediately, teacher might want to see the details
+        });
+
+        function generateQRCode(data) {
+            const qrCodeContainer = document.getElementById('qrcode');
+            qrCodeContainer.innerHTML = ''; // Clear previous QR code
+            try {
+                 new QRCode(qrCodeContainer, {
+                    text: data,
+                    width: 180, // Slightly smaller than container
+                    height: 180,
+                    colorDark : "#000000",
+                    colorLight : "#ffffff",
+                    correctLevel : QRCode.CorrectLevel.H // High correction level
+                });
+            } catch (error) {
+                 console.error("Error generating QR code:", error);
+                 qrCodeContainer.innerHTML = '<p class="text-red-500">Error generating QR code.</p>';
+            }
+        }
+
+        // --- Attendance Recording (Simulation) ---
+        document.getElementById('simulate-scan-button').addEventListener('click', () => {
+             // Toggle visibility of the simulation input area
+             const simArea = document.getElementById('scan-simulation-area');
+             simArea.classList.toggle('hidden');
+        });
+
+        document.getElementById('submit-simulated-scan').addEventListener('click', () => {
+            const studentIdToSimulate = document.getElementById('simulated-student-id').value.trim();
+            const sessionId = state.activeSessionIdForQR; // Use the session ID associated with the displayed QR
+
+            if (!sessionId) {
+                showNotification('No active session QR code is displayed.', 'error');
+                return;
+            }
+            if (!studentIdToSimulate) {
+                 showNotification('Please enter a Student ID to simulate scan.', 'error');
+                 return;
+            }
+
+            recordAttendance(sessionId, studentIdToSimulate);
+             document.getElementById('simulated-student-id').value = ''; // Clear input
+             // Optionally hide the input area again
+             // document.getElementById('scan-simulation-area').classList.add('hidden');
+        });
+
+
+        function recordAttendance(sessionId, scannedStudentId) {
+            const session = state.sessions.find(s => s.id === sessionId);
+            if (!session) {
+                showNotification(`Session ${sessionId} not found.`, 'error');
+                console.error("Session not found for recording:", sessionId);
+                return;
+            }
+
+             const section = state.sections.find(sec => sec.id === session.sectionId);
+             if (!section) {
+                 showNotification(`Section ${session.sectionId} for this session not found.`, 'error');
+                 console.error("Section not found for session:", session.sectionId);
+                 return;
+             }
+
+             // Find the student in the section associated with this session
+             const student = section.students.find(stu => stu.studentId === scannedStudentId);
+             if (!student) {
+                 showNotification(`Student ID "${scannedStudentId}" not found in section "${section.name}".`, 'error');
+                 return;
+             }
+
+             // Check if student already marked attendance for this session
+             if (session.attendance.some(att => att.studentId === scannedStudentId)) {
+                 showNotification(`Student ${student.name} (${scannedStudentId}) already marked attendance for this session.`, 'warning');
+                 return;
+             }
+
+             // Determine attendance status based on time
+             const now = new Date();
+             const startTime = new Date(session.startTime);
+             const endTime = new Date(session.endTime);
+             const gracePeriodMinutes = 15;
+             const lateTime = new Date(endTime.getTime() + gracePeriodMinutes * 60000); // Add 15 minutes
+
+             let status = 'ABSENT'; // Default assumption
+             let timestamp = now.toISOString();
+
+             if (now >= startTime && now <= endTime) {
+                 status = 'ON TIME';
+             } else if (now > endTime && now <= lateTime) {
+                 status = 'LATE';
+             } else {
+                 // If scanned time is outside allowed window (before start or after late period)
+                 // For this simulation, we'll still record it but maybe flag it?
+                 // Or reject it? Let's record it as LATE if after end time, even if past grace.
+                 // A real system might prevent scans outside the window.
+                 if (now > lateTime) {
+                     status = 'LATE'; // Or perhaps a different status like 'VERY LATE' / 'INVALID SCAN TIME'
+                     showNotification(`Scan time is significantly past the session end. Marked as LATE.`, 'warning');
+                 } else if (now < startTime) {
+                     showNotification(`Attendance cannot be marked before the session starts.`, 'error');
+                     return; // Don't record if before start time
+                 }
+             }
+
+             // Add to attendance list
+             session.attendance.push({
+                 studentId: student.studentId, // Use the official ID number
+                 name: student.name, // Store name for convenience
+                 timestamp: timestamp,
+                 status: status,
+                 notes: '' // Initialize notes
+             });
+
+             saveData();
+             showNotification(`Attendance recorded for ${student.name} (${scannedStudentId}) as ${status}.`, 'success');
+
+             // If the currently viewed attendance is this session, refresh the table
+             if (state.currentView === 'view-attendance-view' && state.activeSessionIdForView === sessionId) {
+                 renderAttendanceTable(sessionId);
+             }
+        }
+
+
+        // --- View Attendance ---
+        function renderViewAttendanceView() {
+            const sessionSelector = document.getElementById('view-session-selector');
+            sessionSelector.innerHTML = '<option value="">-- Select Session --</option>'; // Clear previous options
+            document.getElementById('attendance-record-display').classList.add('hidden'); // Hide table initially
+            document.getElementById('attendance-table-body').innerHTML = '<tr><td colspan="6" class="text-center py-4 text-gray-500">Select a session to view attendance.</td></tr>'; // Reset table body
+
+            // Populate selector with sessions (most recent first)
+            const sortedSessions = [...state.sessions].sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
+
+            sortedSessions.forEach(session => {
+                const option = document.createElement('option');
+                option.value = session.id;
+                option.textContent = `${session.subject} - ${session.sectionName} (${formatDateTime(session.startTime)})`;
+                sessionSelector.appendChild(option);
+            });
+
+            // Restore selection if returning to this view
+            if (state.activeSessionIdForView) {
+                 sessionSelector.value = state.activeSessionIdForView;
+                 renderAttendanceTable(state.activeSessionIdForView); // Re-render table if a session was selected
+            }
+        }
+
+        document.getElementById('view-session-selector').addEventListener('change', (e) => {
+            const selectedSessionId = e.target.value;
+            state.activeSessionIdForView = selectedSessionId; // Store the selected session ID
+            if (selectedSessionId) {
+                renderAttendanceTable(selectedSessionId);
+            } else {
+                // Hide table if default option is selected
+                document.getElementById('attendance-record-display').classList.add('hidden');
+                document.getElementById('attendance-table-body').innerHTML = '<tr><td colspan="6" class="text-center py-4 text-gray-500">Select a session to view attendance.</td></tr>';
+            }
+        });
+
+        function renderAttendanceTable(sessionId) {
+            const session = state.sessions.find(s => s.id === sessionId);
+            if (!session) {
+                showNotification('Selected session not found.', 'error');
+                document.getElementById('attendance-record-display').classList.add('hidden');
+                return;
+            }
+
+             const section = state.sections.find(sec => sec.id === session.sectionId);
+             if (!section) {
+                 showNotification('Associated section not found.', 'error');
+                 document.getElementById('attendance-record-display').classList.add('hidden');
+                 return;
+             }
+
+            // --- Automatically mark absentees ---
+            // Get IDs of students who attended
+            const attendedStudentIds = new Set(session.attendance.map(att => att.studentId));
+            // Find students in the section who did NOT attend
+            section.students.forEach(student => {
+                if (!attendedStudentIds.has(student.studentId)) {
+                    // Check if they are already marked (e.g., manually added as absent)
+                    const existingAbsentRecord = session.attendance.find(att => att.studentId === student.studentId && att.status === 'ABSENT');
+                    if (!existingAbsentRecord) {
+                         // Add them to the attendance list as ABSENT
+                         session.attendance.push({
+                             studentId: student.studentId,
+                             name: student.name,
+                             timestamp: null, // No timestamp for absent
+                             status: 'ABSENT',
+                             notes: ''
+                         });
+                    }
+                }
+            });
+            // Note: This auto-absent logic runs every time the table is rendered.
+            // A more robust system might run this once when the session officially "closes".
+            // We should save the data after potentially adding absentees.
+            saveData();
+            // --- End auto-absent logic ---
+
+
+            // Update header info
+            document.getElementById('attendance-header').textContent = `Attendance for: ${session.subject}, ${session.sectionName}`;
+            document.getElementById('attendance-time').textContent = `${formatDate(session.startTime)}, ${formatTime(session.startTime)} – ${formatTime(session.endTime)}`;
+
+            const tableBody = document.getElementById('attendance-table-body');
+            tableBody.innerHTML = ''; // Clear previous rows
+
+            // Sort attendance records: Status (On Time, Late, Absent), then Name alphabetically
+            const sortedAttendance = [...session.attendance].sort((a, b) => {
+                 const statusOrder = { 'ON TIME': 1, 'LATE': 2, 'ABSENT': 3 };
+                 const statusComparison = (statusOrder[a.status] || 4) - (statusOrder[b.status] || 4);
+                 if (statusComparison !== 0) {
+                     return statusComparison;
+                 }
+                 // If status is the same, sort by name
+                 return a.name.localeCompare(b.name);
+            });
+
+
+            if (sortedAttendance.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-gray-500">No attendance records yet for this session.</td></tr>';
+            } else {
+                 let currentStatus = '';
+                 sortedAttendance.forEach((record, index) => {
+                     // Add status headers like in the example
+                     if (record.status !== currentStatus) {
+                         currentStatus = record.status;
+                         const statusRow = document.createElement('tr');
+                         statusRow.innerHTML = `<td colspan="6" class="px-6 py-2 bg-gray-100 text-sm font-semibold text-gray-600 uppercase">${currentStatus}</td>`;
+                         tableBody.appendChild(statusRow);
+                     }
+
+                     const row = document.createElement('tr');
+                     row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50'; // Alternating row colors
+                     row.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${record.status}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${record.name}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${record.studentId}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${record.timestamp ? formatDateTime(record.timestamp) : '---'}</td>
+                        <td class="px-6 py-4 text-sm text-gray-500 max-w-xs truncate" title="${record.notes || ''}">${record.notes || '---'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <button class="edit-attendance-button text-indigo-600 hover:text-indigo-900 mr-2" data-session-id="${sessionId}" data-student-id="${record.studentId}">Edit</button>
+                            <button class="delete-attendance-button text-red-600 hover:text-red-900" data-session-id="${sessionId}" data-student-id="${record.studentId}">Delete</button>
+                        </td>
+                    `;
+                    tableBody.appendChild(row);
+                 });
+            }
+
+            // Add event listeners for edit/delete buttons
+             document.querySelectorAll('.edit-attendance-button').forEach(button => {
+                 button.addEventListener('click', handleEditAttendanceClick);
+             });
+             document.querySelectorAll('.delete-attendance-button').forEach(button => {
+                 button.addEventListener('click', handleDeleteAttendanceClick);
+             });
+
+            // Show the attendance display area
+            document.getElementById('attendance-record-display').classList.remove('hidden');
+        }
+
+        // --- Attendance Editing ---
+         function handleEditAttendanceClick(event) {
+             const sessionId = event.target.dataset.sessionId;
+             const studentId = event.target.dataset.studentId; // The actual student ID number
+
+             const session = state.sessions.find(s => s.id === sessionId);
+             const record = session?.attendance.find(att => att.studentId === studentId);
+
+             if (!session || !record) {
+                 showNotification('Could not find attendance record to edit.', 'error');
+                 return;
+             }
+
+             // Populate the modal form
+             document.getElementById('edit-session-id').value = sessionId;
+             document.getElementById('edit-student-identifier').value = studentId; // Use studentId as identifier
+             document.getElementById('edit-student-name').textContent = record.name;
+             document.getElementById('edit-student-id').textContent = record.studentId;
+             // Format timestamp for datetime-local input (YYYY-MM-DDTHH:mm)
+             const timestampInput = document.getElementById('edit-timestamp');
+             if (record.timestamp) {
+                 try {
+                     const date = new Date(record.timestamp);
+                     // Adjust for local timezone offset before formatting
+                     const timezoneOffset = date.getTimezoneOffset() * 60000; // Offset in milliseconds
+                     const localISOTime = new Date(date.getTime() - timezoneOffset).toISOString().slice(0, 16);
+                     timestampInput.value = localISOTime;
+                 } catch (e) {
+                     console.error("Error formatting timestamp for input:", record.timestamp, e);
+                     timestampInput.value = ''; // Clear on error
+                 }
+             } else {
+                  timestampInput.value = ''; // Clear if absent (no timestamp)
+             }
+
+             document.getElementById('edit-notes').value = record.notes || '';
+
+             openModal('edit-attendance-modal');
+         }
+
+        document.getElementById('edit-attendance-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const sessionId = document.getElementById('edit-session-id').value;
+            const studentId = document.getElementById('edit-student-identifier').value;
+            const newTimestampStr = document.getElementById('edit-timestamp').value;
+            const newNotes = document.getElementById('edit-notes').value.trim();
+
+            const session = state.sessions.find(s => s.id === sessionId);
+            const recordIndex = session?.attendance.findIndex(att => att.studentId === studentId);
+
+            if (!session || recordIndex === -1) {
+                showNotification('Could not find attendance record to save.', 'error');
+                closeModal('edit-attendance-modal');
+                return;
+            }
+
+            const record = session.attendance[recordIndex];
+
+            // Update notes
+            record.notes = newNotes;
+
+            // Update timestamp and status
+            if (newTimestampStr) {
+                 const newTimestamp = new Date(newTimestampStr);
+                 if (isNaN(newTimestamp.getTime())) {
+                     showNotification('Invalid timestamp format entered.', 'error');
+                     return; // Don't proceed if timestamp is invalid
+                 }
+                 record.timestamp = newTimestamp.toISOString();
+
+                 // Recalculate status based on the *new* timestamp
+                 const startTime = new Date(session.startTime);
+                 const endTime = new Date(session.endTime);
+                 const gracePeriodMinutes = 15;
+                 const lateTime = new Date(endTime.getTime() + gracePeriodMinutes * 60000);
+
+                 if (newTimestamp >= startTime && newTimestamp <= endTime) {
+                     record.status = 'ON TIME';
+                 } else if (newTimestamp > endTime && newTimestamp <= lateTime) {
+                     record.status = 'LATE';
+                 } else if (newTimestamp > lateTime) {
+                      record.status = 'LATE'; // Or 'VERY LATE' etc.
+                 } else { // Before start time - mark as ON TIME? Or invalid? Let's treat as ON TIME if manually set.
+                      record.status = 'ON TIME'; // Or maybe prevent saving if before start?
+                 }
+
+            } else {
+                 // If timestamp is cleared, mark as ABSENT
+                 record.timestamp = null;
+                 record.status = 'ABSENT';
+            }
+
+            saveData();
+            renderAttendanceTable(sessionId); // Re-render the table with updated data
+            closeModal('edit-attendance-modal');
+            showNotification(`Attendance record for ${record.name} updated.`, 'success');
+        });
+
+         function handleDeleteAttendanceClick(event) {
+             const sessionId = event.target.dataset.sessionId;
+             const studentId = event.target.dataset.studentId;
+
+             const session = state.sessions.find(s => s.id === sessionId);
+             const record = session?.attendance.find(att => att.studentId === studentId);
+
+
+             if (session && record && confirm(`Are you sure you want to delete the attendance record for ${record.name}?`)) {
+                 session.attendance = session.attendance.filter(att => att.studentId !== studentId);
+                 saveData();
+                 renderAttendanceTable(sessionId); // Refresh the table
+                 showNotification(`Attendance record for ${record.name} deleted.`, 'success');
+             }
+         }
+
+        // --- Weekly Report ---
+        function renderWeeklyReportView() {
+             const reportContentDiv = document.getElementById('weekly-report-content');
+             reportContentDiv.innerHTML = ''; // Clear previous report
+
+             // 1. Determine the date range for the current week (e.g., Sunday to Saturday)
+             // This is complex to get right across timezones and locales.
+             // For simplicity, let's just get all records from the last 7 days.
+             const now = new Date();
+             const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+             // 2. Filter sessions within the last 7 days
+             const recentSessions = state.sessions.filter(s => new Date(s.startTime) >= sevenDaysAgo);
+
+             // 3. Collect all LATE and ABSENT records from these sessions
+             let reportEntries = [];
+             recentSessions.forEach(session => {
+                 // Ensure absentees are marked for report generation if not already done
+                 const section = state.sections.find(sec => sec.id === session.sectionId);
+                 if (section) {
+                     const attendedStudentIds = new Set(session.attendance.map(att => att.studentId));
+                     section.students.forEach(student => {
+                         if (!attendedStudentIds.has(student.studentId)) {
+                             const existingRecord = session.attendance.find(att => att.studentId === student.studentId);
+                             if (!existingRecord) { // Only add if not present at all
+                                 session.attendance.push({
+                                     studentId: student.studentId,
+                                     name: student.name,
+                                     timestamp: null,
+                                     status: 'ABSENT',
+                                     notes: ''
+                                 });
+                             } else if (existingRecord.status !== 'ABSENT' && !existingRecord.timestamp) {
+                                 // If somehow marked present but no timestamp, mark absent
+                                 existingRecord.status = 'ABSENT';
+                             }
+                         }
+                     });
+                 }
+                 // End ensure absentees
+
+                 session.attendance.forEach(record => {
+                     if (record.status === 'LATE' || record.status === 'ABSENT') {
+                         reportEntries.push({
+                             date: session.startTime, // Use session start time for grouping by date
+                             name: record.name,
+                             section: session.sectionName,
+                             setTime: `${formatTime(session.startTime)} – ${formatTime(session.endTime)}`,
+                             arrival: record.status === 'LATE' ? formatTime(record.timestamp) : '', // Arrival time only if late
+                             status: record.status, // Keep status for grouping
+                             subject: session.subject
+                         });
+                     }
+                 });
+             });
+
+             // 4. Group entries by Date
+             const groupedByDate = reportEntries.reduce((acc, entry) => {
+                 const dateStr = formatDate(entry.date); // "April 1, 2025"
+                 if (!acc[dateStr]) {
+                     acc[dateStr] = [];
+                 }
+                 acc[dateStr].push(entry);
+                 return acc;
+             }, {});
+
+             // 5. Sort dates (most recent first) and then sort entries within each date
+             const sortedDates = Object.keys(groupedByDate).sort((a, b) => new Date(b) - new Date(a));
+
+             if (sortedDates.length === 0) {
+                  reportContentDiv.innerHTML = '<p class="text-gray-500">No LATE or ABSENT records found in the last 7 days.</p>';
+                  return;
+             }
+
+             sortedDates.forEach(dateStr => {
+                 const dateDiv = document.createElement('div');
+                 dateDiv.className = 'mb-6';
+
+                 const dateHeader = document.createElement('h3');
+                 dateHeader.className = 'text-lg font-semibold mb-2 text-gray-600 border-b pb-1';
+                 dateHeader.textContent = `"${dateStr}"`;
+                 dateDiv.appendChild(dateHeader);
+
+                 const entriesForDate = groupedByDate[dateStr];
+
+                 // Separate LATE and ABSENT
+                 const lateEntries = entriesForDate.filter(e => e.status === 'LATE');
+                 const absentEntries = entriesForDate.filter(e => e.status === 'ABSENT');
+
+                 // Sort each group alphabetically by Name, then Section
+                 const sortFn = (a, b) => {
+                     const nameComp = a.name.localeCompare(b.name);
+                     if (nameComp !== 0) return nameComp;
+                     return a.section.localeCompare(b.section);
+                 };
+                 lateEntries.sort(sortFn);
+                 absentEntries.sort(sortFn);
+
+                 // Function to create table for a status group
+                 const createTable = (entries, status) => {
+                     if (entries.length === 0) return ''; // Return empty string if no entries
+
+                     const table = document.createElement('table');
+                     table.className = 'min-w-full divide-y divide-gray-200 mb-4';
+                     table.innerHTML = `
+                        <caption class="caption-top text-left text-md font-medium text-gray-700 py-1">${status}</caption>
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Section</th>
+                                <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Set Time</th>
+                                <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Arrival</th>
+                                <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subject</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            ${entries.map(entry => `
+                                <tr>
+                                    <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-900">${entry.name}</td>
+                                    <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">${entry.section}</td>
+                                    <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">${entry.setTime}</td>
+                                    <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">${entry.arrival || '---'}</td>
+                                    <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">${entry.subject}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                     `;
+                     return table;
+                 };
+
+                 // Add LATE table if entries exist
+                 if (lateEntries.length > 0) {
+                     dateDiv.appendChild(createTable(lateEntries, 'LATE'));
+                 }
+
+                 // Add ABSENT table if entries exist
+                 if (absentEntries.length > 0) {
+                     dateDiv.appendChild(createTable(absentEntries, 'ABSENT'));
+                 }
+
+                 reportContentDiv.appendChild(dateDiv);
+             });
+        }
+
+        // --- Exporting ---
+        function exportToCsv(filename, rows) {
+            if (!rows || rows.length === 0) {
+                showNotification('No data to export.', 'warning');
+                return;
+            }
+
+            // Add BOM for Excel compatibility with UTF-8
+            const BOM = "\uFEFF";
+            const csvContent = BOM + rows.map(row =>
+                row.map(field => {
+                    const str = String(field === null || field === undefined ? '' : field);
+                    // Escape double quotes by doubling them and wrap field in double quotes if it contains comma, double quote, or newline
+                    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+                        return `"${str.replace(/"/g, '""')}"`;
+                    }
+                    return str;
+                }).join(',')
+            ).join('\n');
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            if (link.download !== undefined) { // Feature detection
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", filename);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url); // Clean up
+            } else {
+                 showNotification('CSV export is not supported in your browser.', 'error');
+            }
+        }
+
+        // Export Attendance CSV
+        document.getElementById('export-attendance-csv').addEventListener('click', () => {
+            const sessionId = state.activeSessionIdForView;
+            if (!sessionId) {
+                showNotification('Please select a session first.', 'warning');
+                return;
+            }
+            const session = state.sessions.find(s => s.id === sessionId);
+            if (!session) return;
+
+            // Re-fetch and sort data just like the table display
+            const sortedAttendance = [...session.attendance].sort((a, b) => {
+                 const statusOrder = { 'ON TIME': 1, 'LATE': 2, 'ABSENT': 3 };
+                 const statusComparison = (statusOrder[a.status] || 4) - (statusOrder[b.status] || 4);
+                 if (statusComparison !== 0) return statusComparison;
+                 return a.name.localeCompare(b.name);
+            });
+
+            const header = [`Attendance for: ${session.subject}, ${session.sectionName}`, `Date: ${formatDate(session.startTime)}`, `Time: ${formatTime(session.startTime)} - ${formatTime(session.endTime)}`];
+            const columns = ['Status', 'Name', 'ID Number', 'Timestamp', 'Notes'];
+            const rows = [
+                 header, // Add header info row
+                 [], // Add empty row for spacing
+                 columns,
+                 ...sortedAttendance.map(record => [
+                     record.status,
+                     record.name,
+                     record.studentId,
+                     record.timestamp ? formatDateTime(record.timestamp) : '', // Format timestamp for CSV
+                     record.notes || ''
+                 ])
+            ];
+
+            const filename = `Attendance_${session.subject}_${session.sectionName}_${formatDate(session.startTime)}.csv`;
+            exportToCsv(filename, rows);
+        });
+
+        // Export Weekly Report CSV
+        document.getElementById('export-report-csv').addEventListener('click', () => {
+             // Re-generate report data similar to renderWeeklyReportView
+             const now = new Date();
+             const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+             const recentSessions = state.sessions.filter(s => new Date(s.startTime) >= sevenDaysAgo);
+             let reportEntries = [];
+             recentSessions.forEach(session => {
+                 // Ensure absentees are marked
+                 const section = state.sections.find(sec => sec.id === session.sectionId);
+                 if (section) {
+                     const attendedStudentIds = new Set(session.attendance.map(att => att.studentId));
+                     section.students.forEach(student => {
+                          if (!attendedStudentIds.has(student.studentId)) {
+                              const existingRecord = session.attendance.find(att => att.studentId === student.studentId);
+                              if (!existingRecord) {
+                                  session.attendance.push({ studentId: student.studentId, name: student.name, timestamp: null, status: 'ABSENT', notes: '' });
+                              } else if (existingRecord.status !== 'ABSENT' && !existingRecord.timestamp) {
+                                  existingRecord.status = 'ABSENT';
+                              }
+                          }
+                     });
+                 }
+                 // Collect LATE/ABSENT
+                 session.attendance.forEach(record => {
+                     if (record.status === 'LATE' || record.status === 'ABSENT') {
+                         reportEntries.push({
+                             date: session.startTime,
+                             name: record.name,
+                             section: session.sectionName,
+                             setTime: `${formatTime(session.startTime)} – ${formatTime(session.endTime)}`,
+                             arrival: record.status === 'LATE' ? formatTime(record.timestamp) : '',
+                             status: record.status,
+                             subject: session.subject
+                         });
+                     }
+                 });
+             });
+
+             const groupedByDate = reportEntries.reduce((acc, entry) => {
+                 const dateStr = formatDate(entry.date);
+                 if (!acc[dateStr]) acc[dateStr] = [];
+                 acc[dateStr].push(entry);
+                 return acc;
+             }, {});
+             const sortedDates = Object.keys(groupedByDate).sort((a, b) => new Date(b) - new Date(a));
+
+             const csvRows = [['WEEKLY REPORT']]; // Main Title
+             const columns = ['NAME', 'SECTION', 'SET TIME', 'ARRIVAL', 'SUBJECT'];
+
+             sortedDates.forEach(dateStr => {
+                 csvRows.push([]); // Empty row before date
+                 csvRows.push([`"${dateStr}"`]); // Date header
+
+                 const entriesForDate = groupedByDate[dateStr];
+                 const lateEntries = entriesForDate.filter(e => e.status === 'LATE');
+                 const absentEntries = entriesForDate.filter(e => e.status === 'ABSENT');
+                 const sortFn = (a, b) => {
+                     const nameComp = a.name.localeCompare(b.name);
+                     if (nameComp !== 0) return nameComp;
+                     return a.section.localeCompare(b.section);
+                 };
+                 lateEntries.sort(sortFn);
+                 absentEntries.sort(sortFn);
+
+                 if (lateEntries.length > 0) {
+                      csvRows.push(['LATE']); // Status Header
+                      csvRows.push(columns); // Column Headers
+                      lateEntries.forEach(e => csvRows.push([e.name, e.section, e.setTime, e.arrival, e.subject]));
+                 }
+                 if (absentEntries.length > 0) {
+                      csvRows.push(['ABSENT']); // Status Header
+                      csvRows.push(columns); // Column Headers (repeated for clarity in CSV)
+                      absentEntries.forEach(e => csvRows.push([e.name, e.section, e.setTime, e.arrival, e.subject]));
+                 }
+             });
+
+             const filename = `Weekly_Report_${formatDate(sevenDaysAgo)}_to_${formatDate(now)}.csv`;
+             exportToCsv(filename, csvRows);
+        });
+
+
+        // --- Initial Load ---
+        function initializeApp() {
+            // Check if user is already logged in (e.g., from previous session)
+            // For this simple example, we force login every time.
+            // A real app might use tokens stored in localStorage.
+            showView('login-view'); // Start at login view
+        }
+
+        // --- Run Initialization ---
+        initializeApp();
+
+    </script>
+
+</body>
+</html>
